@@ -16,7 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
 import { isSellSideType, currencyForType } from "@/lib/zalo-counterparty";
-import { pickRepresentativeRate } from "@/lib/pricing";
+import { pickLowestSalePrice, pickLowestSupplierCost } from "@/lib/pricing";
 import { formatVillaName } from "@/lib/villa-name";
 import type {
   VillaCandidate,
@@ -80,17 +80,15 @@ export async function GET(
         bedrooms: true,
         bathrooms: true,
         photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
-        // ADR-0014: 기본요금(base) 행이 대표 원가. 원가 전용 select — salePrice*/margin 미조회.
+        // 대표 원가 = 전체 요율 중 원가 >0 최저값(계약 A) — base=0 초기화 오염 회피. 원가 전용 select(salePrice*/margin 미조회).
         ratePeriods: {
-          where: { isBase: true },
-          take: 1,
-          select: { season: true, supplierCostVnd: true },
+          select: { supplierCostVnd: true },
         },
       },
     });
     villaCandidates = serializeBigInt(
       villas.map((v) => {
-        const low = pickRepresentativeRate(v.ratePeriods[0], []);
+        const low = pickLowestSupplierCost(v.ratePeriods);
         return {
           id: v.id,
           name: v.name,
@@ -99,8 +97,9 @@ export async function GET(
           bathrooms: v.bathrooms,
           photoUrl: v.photos[0]?.url ?? null,
           priceLabelKind: "supplierCostVnd" as const,
-          priceVnd: low ? low.supplierCostVnd : null,
+          priceVnd: low,
           priceKrw: null,
+          priceIsFrom: low !== null, // 최저값 기준 → "부터" 표기
         };
       })
     ) as VillaCandidate[];
@@ -146,17 +145,16 @@ export async function GET(
         bedrooms: true,
         bathrooms: true,
         photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
-        // ADR-0014: 기본요금(base) 행이 대표 판매가. 판매가 전용 select(누수 불변식) — 원가·마진 미조회.
+        // 대표 판매가 = 전체 요율 중 판매가 >0 최저값(계약 A/D1) — base=0 초기화 오염 회피.
+        // 판매가 전용 select(누수 불변식) — 원가·마진 미조회.
         ratePeriods: {
-          where: { isBase: true },
-          take: 1,
-          select: { season: true, salePriceKrw: true, salePriceVnd: true },
+          select: { season: true, isBase: true, salePriceKrw: true, salePriceVnd: true },
         },
       },
     });
     villaCandidates = serializeBigInt(
       villas.map((v) => {
-        const low = pickRepresentativeRate(v.ratePeriods[0], []);
+        const low = pickLowestSalePrice(v.ratePeriods, useKrw);
         return {
           id: v.id,
           name: v.name,
@@ -167,15 +165,23 @@ export async function GET(
           priceLabelKind: (useKrw ? "salePriceKrw" : "salePriceVnd") as
             | "salePriceKrw"
             | "salePriceVnd",
-          priceVnd: useKrw ? null : low ? low.salePriceVnd : null,
-          priceKrw: useKrw ? (low ? low.salePriceKrw : null) : null,
+          priceVnd: low?.vnd ?? null,
+          priceKrw: low?.krw ?? null,
+          priceIsFrom: low !== null, // 최저 시즌가 기준 → "부터" 표기
         };
       })
     ) as VillaCandidate[];
 
     // 제안 후보 — ACTIVE + 미만료만. 판매가 총액(채널 통화)만. 원가·마진 없음.
+    // 대화 귀속 필터(계약 I): 기본은 미귀속(conversationId=null) + 이 대화 귀속만 노출(오발송 차단).
+    //   ?allProposals=1이면 필터 해제(전체 보기 토글, 계약 J).
+    const allProposals = new URL(_req.url).searchParams.get("allProposals") === "1";
     const proposals = await prisma.proposal.findMany({
-      where: { status: "ACTIVE", expiresAt: { gt: now } },
+      where: {
+        status: "ACTIVE",
+        expiresAt: { gt: now },
+        ...(allProposals ? {} : { OR: [{ conversationId: null }, { conversationId: id }] }),
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
       select: {
@@ -183,6 +189,7 @@ export async function GET(
         clientName: true,
         saleCurrency: true,
         expiresAt: true,
+        conversationId: true,
         items: {
           select: {
             totalKrw: true,
@@ -214,6 +221,7 @@ export async function GET(
           totalKrw: useKrw ? totalKrw : null,
           totalVnd: useKrw ? null : totalVnd,
           expiresInHours,
+          boundHere: p.conversationId === id, // 이 대화에 귀속된 제안(UI 구분용)
         };
       })
     ) as ProposalCandidate[];

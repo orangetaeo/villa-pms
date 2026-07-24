@@ -32,6 +32,37 @@ function fmtVndComma(v: string | null): string {
   return `${Number(v).toLocaleString("en-US")}₫`;
 }
 
+/**
+ * 빌라 후보 대표가 라벨(계약 B) — priceIsFrom이면 "…부터", 값 없으면 회색 "가격 미설정".
+ * 원가/판매가(VND)는 점 표기, 고객 판매가(KRW)는 원 표기. 통화별 키는 …From 변형으로 분기.
+ */
+function villaPriceLabel(v: VillaCandidate, t: T): React.ReactNode {
+  const hasPrice =
+    v.priceLabelKind === "salePriceKrw" ? v.priceKrw !== null : v.priceVnd !== null;
+  if (!hasPrice) {
+    return (
+      <p className="text-[11px] font-medium text-slate-500 mt-0.5">{t("shareModal.priceUnset")}</p>
+    );
+  }
+  const key =
+    v.priceLabelKind === "supplierCostVnd"
+      ? v.priceIsFrom
+        ? "shareModal.costPerNightFrom"
+        : "shareModal.costPerNight"
+      : v.priceLabelKind === "salePriceVnd"
+        ? v.priceIsFrom
+          ? "shareModal.salePerNightVndFrom"
+          : "shareModal.salePerNightVnd"
+        : v.priceIsFrom
+          ? "shareModal.salePerNightFrom"
+          : "shareModal.salePerNight";
+  const amount =
+    v.priceLabelKind === "salePriceKrw" ? fmtKrw(v.priceKrw) : fmtVndDot(v.priceVnd);
+  return (
+    <p className="text-[11px] font-bold text-teal-400 tabular-nums mt-0.5">{t(key, { amount })}</p>
+  );
+}
+
 function ModalShell({
   title,
   subtitle,
@@ -224,13 +255,7 @@ export function VillaShareModal({
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
-                  <p className="text-[11px] font-bold text-teal-400 tabular-nums mt-0.5">
-                    {v.priceLabelKind === "supplierCostVnd"
-                      ? t("shareModal.costPerNight", { amount: fmtVndDot(v.priceVnd) })
-                      : v.priceLabelKind === "salePriceVnd"
-                        ? t("shareModal.salePerNightVnd", { amount: fmtVndDot(v.priceVnd) })
-                        : t("shareModal.salePerNight", { amount: fmtKrw(v.priceKrw) })}
-                  </p>
+                  {villaPriceLabel(v, t)}
                 </div>
                 <span
                   className={
@@ -256,6 +281,8 @@ export function VillaShareModal({
 export function ProposalShareModal({
   candidates,
   contactName,
+  showingAll,
+  onShowAll,
   onClose,
   onSubmit,
   submitting,
@@ -263,6 +290,10 @@ export function ProposalShareModal({
 }: {
   candidates: ProposalCandidate[];
   contactName: string;
+  /** 전체 제안 보기 활성 여부(계약 J) — true면 다른 대화 귀속분 포함 전체. */
+  showingAll: boolean;
+  /** "전체 제안 보기" 클릭 → allProposals=1 재조회. */
+  onShowAll: () => void;
   onClose: () => void;
   onSubmit: (proposalId: string) => void;
   submitting: boolean;
@@ -315,8 +346,16 @@ export function ProposalShareModal({
                 }
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-bold text-white truncate">
-                    {t("shareModal.proposalFor", { name: p.clientName })}
+                  <p className="text-sm font-bold text-white truncate flex items-center gap-1.5 min-w-0">
+                    <span className="truncate">
+                      {t("shareModal.proposalFor", { name: p.clientName })}
+                    </span>
+                    {/* 전체 보기에서 이 대화 귀속 제안 구분(계약 I/J) */}
+                    {showingAll && p.boundHere && (
+                      <span className="shrink-0 px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 text-[9px] font-bold">
+                        {t("shareModal.proposalBoundHere")}
+                      </span>
+                    )}
                   </p>
                   <span
                     className={
@@ -354,6 +393,22 @@ export function ProposalShareModal({
               </button>
             );
           })
+        )}
+      </div>
+      {/* 전체 제안 보기 토글(계약 J) — 기본은 매칭+미귀속만. 클릭 시 다른 대화 귀속분 포함 전체 재조회. */}
+      <div className="border-t border-slate-800 px-5 py-2 shrink-0">
+        {showingAll ? (
+          <p className="text-[11px] text-slate-500 text-center">
+            {t("shareModal.proposalShowingAll")}
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={onShowAll}
+            className="w-full text-[11px] font-bold text-blue-400 hover:text-blue-300 py-1"
+          >
+            {t("shareModal.proposalShowAll")}
+          </button>
         )}
       </div>
       <div className="bg-slate-800/40 border-t border-slate-800 px-5 py-2.5 flex items-center gap-2 shrink-0">

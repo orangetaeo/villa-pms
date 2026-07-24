@@ -82,9 +82,11 @@ export function buildVillaShareTextForSupplier(
   rates: SupplierRateView[]
 ): string {
   const lines = shareHeader(villa);
-  if (rates.length) {
+  // 원가 0(≤0 — base 초기화 미책정)인 행은 생략. 유효 행이 없으면 섹션 헤더도 생략(계약 C).
+  const priced = sortRatePeriods(rates).filter((r) => r.supplierCostVnd > 0n);
+  if (priced.length) {
     lines.push("— 원가(1박)");
-    for (const r of sortRatePeriods(rates)) {
+    for (const r of priced) {
       lines.push(`  ${ratePeriodLabel(r)}: ${formatVnd(r.supplierCostVnd)}`);
     }
   }
@@ -102,16 +104,48 @@ export function buildVillaShareTextForCustomer(
   saleCurrency: Currency
 ): string {
   const lines = shareHeader(villa);
-  if (rates.length) {
+  // 판매가 0(≤0 — base 초기화로 salePriceKrw=0 등)인 행은 생략. 유효 행이 없으면 섹션 헤더도 생략(계약 C).
+  const useKrw = saleCurrency === Currency.KRW;
+  const priced = sortRatePeriods(rates).filter((r) =>
+    useKrw ? r.salePriceKrw > 0 : r.salePriceVnd > 0n
+  );
+  if (priced.length) {
     lines.push("— 가격(1박)");
-    for (const r of sortRatePeriods(rates)) {
-      const price =
-        saleCurrency === Currency.KRW
-          ? formatKrw(r.salePriceKrw)
-          : formatVnd(r.salePriceVnd);
+    for (const r of priced) {
+      const price = useKrw ? formatKrw(r.salePriceKrw) : formatVnd(r.salePriceVnd);
       lines.push(`  ${ratePeriodLabel(r)}: ${price}`);
     }
   }
+  return lines.join("\n");
+}
+
+/**
+ * 간단정보 + 대표 "부터" 가격 + 블로그 링크 본문 (계약 E, Q2).
+ * 발행된 빌라 소개글이 있을 때 고객 경로에서 상세 요율 나열 대신 이 요약을 보낸다.
+ * from은 CustomerRateView 최저값(pickLowestSalePrice 산출) — saleCurrency에 해당하는 값만 표기.
+ * ⚠️ 누수 불변식: from에는 판매가만, 원가·마진 없음. 블로그 링크는 이미 익명 공개(실명·정확위치 없음).
+ */
+export function buildVillaShareBriefWithBlog(
+  villa: VillaShareBase,
+  from: { krw: number | null; vnd: bigint | null } | null,
+  saleCurrency: Currency,
+  blog: { url: string; title: string }
+): string {
+  const lines = shareHeader(villa);
+  if (from) {
+    const price =
+      saleCurrency === Currency.KRW
+        ? from.krw != null
+          ? formatKrw(from.krw)
+          : null
+        : from.vnd != null
+          ? formatVnd(from.vnd)
+          : null;
+    if (price) lines.push(`${price} ~ / 박`);
+  }
+  lines.push("");
+  lines.push(`📖 상세 소개: ${blog.title}`);
+  lines.push(blog.url);
   return lines.join("\n");
 }
 

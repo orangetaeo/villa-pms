@@ -108,9 +108,11 @@ const txMsgCreate = vi.fn(async (arg: { data: Record<string, unknown> }) => ({
   status: arg.data.status,
   createdAt: new Date("2026-06-16T00:00:00Z"),
 }));
+const txProposalUpdate = vi.fn(async () => ({}));
 const tx = {
   zaloMessage: { create: txMsgCreate },
   zaloConversation: { update: vi.fn(async () => ({})) },
+  proposal: { update: txProposalUpdate },
 };
 
 vi.mock("@/lib/prisma", () => ({
@@ -159,14 +161,21 @@ vi.mock("@/lib/prisma", () => ({
     },
     proposal: {
       findUnique: vi.fn(async (arg: { where: { id: string } }) => {
-        if (arg.where.id !== "prop1") return null;
+        // prop1=미귀속(bind 대상), prop2=다른 대화(convOther) 귀속(409), prop3=convTravel 귀속(통과)
+        const CONVID: Record<string, string | null> = {
+          prop1: null,
+          prop2: "convOther",
+          prop3: "convTravel",
+        };
+        if (!(arg.where.id in CONVID)) return null;
         return {
-          id: "prop1",
+          id: arg.where.id,
           token: "tok-abc",
           clientName: "여행사A",
           status: "ACTIVE",
           expiresAt: new Date(Date.now() + 86400000),
           saleCurrency: "KRW",
+          conversationId: CONVID[arg.where.id],
           // 제안 요약 동봉(T-zalo-notify-enrichment) — 빌라·기간·판매가만(원가·마진 없음)
           items: [
             {
@@ -181,6 +190,8 @@ vi.mock("@/lib/prisma", () => ({
         };
       }),
     },
+    // 빌라→블로그 역조회(계약 D/F) — 기본은 발행글 없음(고객 빌라 공유 폴백 경로 유지).
+    seoArticle: { findFirst: vi.fn(async () => null) },
     settlement: {
       findFirst: vi.fn(async (arg: { where: Record<string, unknown> }) => {
         lastSettlementWhere = arg.where;
@@ -379,6 +390,32 @@ describe("S2 제안 — 고객 전용", () => {
   it("UNKNOWN 대화 거부 403", async () => {
     const res = await jsonReq("convUnknown", { type: "PROPOSAL", proposalId: "prop1" });
     expect(res.status).toBe(403);
+  });
+});
+
+describe("S2 제안 — 대화 귀속 bind (계약 H, Q3)", () => {
+  it("미귀속 제안 공유 시 이 대화로 bind(update) 후 200", async () => {
+    const res = await jsonReq("convTravel", { type: "PROPOSAL", proposalId: "prop1" });
+    expect(res.status).toBe(200);
+    // bind update가 이 대화 id로 실행됐는지(트랜잭션 내 proposal.update)
+    expect(txProposalUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "prop1" },
+        data: { conversationId: "convTravel" },
+      })
+    );
+  });
+  it("이미 다른 대화에 귀속된 제안은 409, 발송·bind 없음", async () => {
+    const res = await jsonReq("convTravel", { type: "PROPOSAL", proposalId: "prop2" });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "PROPOSAL_BOUND_OTHER_CONVERSATION" });
+    expect(txProposalUpdate).not.toHaveBeenCalled();
+    expect(mockSendText).not.toHaveBeenCalled();
+  });
+  it("같은 대화에 이미 귀속된 제안은 재bind 없이 200", async () => {
+    const res = await jsonReq("convTravel", { type: "PROPOSAL", proposalId: "prop3" });
+    expect(res.status).toBe(200);
+    expect(txProposalUpdate).not.toHaveBeenCalled();
   });
 });
 
