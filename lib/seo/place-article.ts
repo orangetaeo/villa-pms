@@ -82,8 +82,9 @@ export const PLACE_SELECT = {
     where: { active: true },
     select: { id: true, url: true, alt: true, caption: true, kind: true, watermarkedUrl: true },
     orderBy: { createdAt: "asc" as const },
-    // 단독 글은 등록된 사진을 대부분 쓴다 — 절반도 못 쓰면 올린 보람이 없다(테오 지적 2026-07-23).
-    take: 12,
+    // 단독 글은 등록된 사진을 넉넉히 쓴다 — 맛집은 음식 갤러리처럼 보이는 편이 낫다(테오 지적 2026-07-24,
+    // 사진 28장 올렸는데 8장만 나가 아쉬움). take는 사진 상한(MAX_PHOTOS_SINGLE_PLACE)보다 여유 있게.
+    take: 24,
   },
 } satisfies Prisma.SeoPlaceSelect;
 
@@ -213,12 +214,17 @@ export function isMediaKind(v: unknown): v is string {
   return typeof v === "string" && MEDIA_KINDS.some((k) => k.key === v);
 }
 
-/** 단독 장소 글이 쓰는 사진 최대 수 — 등록분을 대부분 쓰되 글이 사진첩이 되지는 않게. */
-export const MAX_PHOTOS_SINGLE_PLACE = 8;
+/**
+ * 단독 장소 글이 쓰는 사진 최대 수 — 등록분을 넉넉히 쓰되 무한정 늘어나 스크롤 피로를 주지는 않게.
+ * 맛집은 음식 사진이 많을수록 글이 풍성해 보인다(테오 지적 2026-07-24). 상한만 두고 그 안에서는 다 쓴다.
+ */
+export const MAX_PHOTOS_SINGLE_PLACE = 16;
 
 /**
- * 단독 글의 사진 순서: **외관(커버) → 음식 여러 장 → 내부 1 → 메뉴판 1 → 나머지**.
- * 맛집 글의 본문은 음식이 중심이므로 음식 사진에 자리를 가장 많이 준다.
+ * 단독 글의 사진 순서: **외관(커버) → 음식 몇 장 → 내부 1 → 메뉴판 1** 로 도입 흐름을 잡고,
+ * 그다음 **남은 음식 전부 → 나머지 역할** 순서로 상한(max)까지 모두 채운다.
+ *   ★ 예전엔 음식을 6장(4+2)만 넣고 끊어, 음식 사진이 24장이어도 6장만 나가 대부분 버려졌다
+ *     (테오 지적 2026-07-24). 이제 상한 안에서는 남은 음식 사진도 이어붙인다.
  * kind가 미지정(null)인 사진은 등록 순서대로 뒤에 붙는다 — 역할을 안 정해도 동작은 한다.
  */
 export function orderSinglePlacePhotos<T extends { kind: string | null }>(photos: T[], max = MAX_PHOTOS_SINGLE_PLACE): T[] {
@@ -228,14 +234,18 @@ export function orderSinglePlacePhotos<T extends { kind: string | null }>(photos
   const push = (arr: T[], n: number) => {
     for (const x of arr.slice(0, n)) if (!out.includes(x) && out.length < max) out.push(x);
   };
+  // ── 도입 흐름 ──
   push(by("exterior"), 1); // 커버 1장
-  push(by("food"), 4); // 본문의 중심
+  push(by("food"), 3); // 초반 음식 몇 장으로 본론 진입
   push(by("interior"), 1);
   push(by("menu"), 1);
-  push(by("food"), 2); // 음식이 더 있으면 더 쓴다
+  // ── 상한까지 나머지 전부(음식 우선) ──
+  push(by("food"), max); // 남은 음식 사진 전부 — 맛집 글의 중심
+  push(by("interior"), max);
   push(unset, max); // 역할 미지정분
-  push(by("exterior"), max);
   push(by("etc"), max);
+  push(by("exterior"), max); // 남은 외관
+  push(by("menu"), max);
   return out;
 }
 
@@ -567,7 +577,13 @@ export async function generatePlaceArticleBody(
         signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
         body: JSON.stringify({
           contents: [{ parts: [{ text: buildPlaceArticlePrompt(c, places) }] }],
-          generationConfig: { temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
+          // responseMimeType:"application/json" — 큰 프롬프트(카피가이드 주입)에서 모델이 가이드를
+          // 복창해 파싱 0블록이 되는 간헐 실패를 차단(JSON 디코딩 모드 강제). 실패 시 null 폴백은 유지.
+          generationConfig: {
+            temperature: 0.7,
+            thinkingConfig: { thinkingBudget: 0 },
+            responseMimeType: "application/json",
+          },
         }),
       }
     );
