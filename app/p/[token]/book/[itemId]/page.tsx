@@ -3,10 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { ProposalStatus } from "@prisma/client";
+import { ProposalStatus, Currency, BookingChannel, BookingSeller } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { effectiveProposalStatus } from "@/lib/proposal";
 import { resolveHoldHours, HOLD_HOURS_DEFAULT_KEY } from "@/lib/hold";
+import { resolveB2cSettings } from "@/lib/b2c-schedule";
+import { computeB2cDisplaySplit } from "@/lib/b2c-terms";
+import { B2cPaymentTerms } from "../../../_components/b2c-payment-terms";
 import {
   CANCELLATION_POLICY_KEY,
   parseCancellationPolicy,
@@ -66,7 +69,8 @@ export default async function BookingRequestPage({
       totalVnd: true,
       totalUsd: true, // Phase 2 USD: 구매자가 볼 제안가($)
       bookingId: true,
-      proposal: { select: { token: true, status: true, expiresAt: true, saleCurrency: true } },
+      // channel·seller — B2C(직접·일반고객, 운영자 판매) 계약금/잔금 안내 표시 판정 (ADR-0048 P5b)
+      proposal: { select: { token: true, status: true, expiresAt: true, saleCurrency: true, channel: true, seller: true } },
       villa: {
         select: {
           // 실명 대신 단지명 라벨(publicVillaLabel) — 제안 플로우(비로그인)는 단지명만 노출(원칙1)
@@ -106,6 +110,27 @@ export default async function BookingRequestPage({
     (item.checkOut.getTime() - item.checkIn.getTime()) / 86_400_000
   );
   const photoUrl = item.villa.photos[0]?.url ?? null;
+
+  // B2C 계약금/잔금 안내 (ADR-0048 P5b) — 직접(일반고객)·운영자 판매 제안에서만. 청구통화 총액을 표시 분할.
+  //   금액은 청구통화 최소단위(bigint). 잔금은 "약"(실확정은 D-14 환율). B2B·공급자직판은 미표시.
+  const cur = item.proposal.saleCurrency;
+  const billingTotal =
+    cur === Currency.KRW
+      ? BigInt(item.totalKrw ?? 0)
+      : cur === Currency.USD
+        ? BigInt(item.totalUsd ?? 0)
+        : item.totalVnd ?? 0n;
+  const showB2cTerms =
+    item.proposal.channel === BookingChannel.DIRECT &&
+    item.proposal.seller === BookingSeller.OPERATOR &&
+    billingTotal > 0n;
+  const b2cSplit = showB2cTerms
+    ? computeB2cDisplaySplit(billingTotal, {
+        checkIn: item.checkIn,
+        now,
+        ...(await resolveB2cSettings(prisma)),
+      })
+    : null;
 
   return (
     <div className="text-slate-900 antialiased">
@@ -167,6 +192,17 @@ export default async function BookingRequestPage({
               </div>
             </div>
           </div>
+
+          {/* B2C 계약금/잔금 안내 + 잔금 환율 변동 공시 (ADR-0048 P5b) — 직접 제안만 */}
+          {b2cSplit && (
+            <B2cPaymentTerms
+              lang={lang}
+              currency={cur}
+              deposit={b2cSplit.deposit}
+              balanceApprox={b2cSplit.balanceApprox}
+              fullPrepay={b2cSplit.fullPrepay}
+            />
+          )}
 
           <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg flex gap-3">
             <span className="material-symbols-outlined text-amber-500">schedule</span>

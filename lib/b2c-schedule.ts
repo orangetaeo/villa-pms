@@ -3,6 +3,7 @@
 //   DIRECT(일반고객) 예약에만 스케줄 생성(멱등). 파트너·공급자 직판은 제외.
 //   ⚠ 누수: 스케줄(VND 앵커·마진 판단 재료)은 canViewFinance 전용 — 공급자·공개·STAFF 경로 직렬화 금지.
 import { Prisma, BookingChannel, BookingSeller, PaymentPurpose, B2cScheduleStatus } from "@prisma/client";
+import type { DbClient } from "./availability";
 import {
   buildB2cScheduleCreate,
   deriveB2cScheduleStatus,
@@ -17,9 +18,9 @@ const BALANCE_LEAD_KEY = "B2C_BALANCE_LEAD_DAYS";
 
 /** AppSetting에서 B2C 정책값 읽기 (오염·미설정은 정책 기본값 폴백 — 서비스 중단 안 함, resolveHoldHours 관례). */
 export async function resolveB2cSettings(
-  tx: Tx
+  db: DbClient
 ): Promise<{ depositRatePct: number; balanceLeadDays: number }> {
-  const rows = await tx.appSetting.findMany({
+  const rows = await db.appSetting.findMany({
     where: { key: { in: [DEPOSIT_RATE_KEY, BALANCE_LEAD_KEY] } },
     select: { key: true, value: true },
   });

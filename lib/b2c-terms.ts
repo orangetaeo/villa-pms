@@ -9,6 +9,12 @@ import { computeB2cSchedule } from "./b2c-payment";
 export const B2C_TERMS_VERSION = 1;
 
 export interface B2cTermsText {
+  /** 카드 제목 */
+  heading: string;
+  /** 금액 행 라벨: 계약금 / 잔금(약) / 전액 */
+  depositLabel: string;
+  balanceLabel: string;
+  fullLabel: string;
   /** 결제 안내 줄들 (계약금·잔금·임박예약·통화) */
   paymentLines: string[];
   /** ★잔금 환율 변동 공시 (강조 노출) */
@@ -20,6 +26,10 @@ export interface B2cTermsText {
 /** 지원 5언어 결제 약관 문구 (일본어 제외 — 테오 2026-07-24). */
 export const B2C_PAYMENT_TERMS: Record<PublicLang, B2cTermsText> = {
   ko: {
+    heading: "결제 안내",
+    depositLabel: "계약금",
+    balanceLabel: "잔금 (약)",
+    fullLabel: "전액 선결제",
     paymentLines: [
       "예약을 확정하려면 계약금 50%를 입금해 주세요. 나머지 잔금은 체크인 14일 전에 안내드립니다.",
       "체크인까지 14일 이내에 예약하시는 경우 전액(100%)을 한 번에 결제합니다.",
@@ -31,6 +41,10 @@ export const B2C_PAYMENT_TERMS: Record<PublicLang, B2cTermsText> = {
       "취소 시 환불은 아래 취소 규정의 환불율에 따르며, 결제하신 통화·금액 그대로 환불됩니다(환율 재계산 없음).",
   },
   vi: {
+    heading: "Hướng dẫn thanh toán",
+    depositLabel: "Tiền cọc",
+    balanceLabel: "Còn lại (ước tính)",
+    fullLabel: "Thanh toán toàn bộ",
     paymentLines: [
       "Để xác nhận đặt phòng, vui lòng thanh toán tiền cọc 50%. Phần còn lại sẽ được thông báo 14 ngày trước khi nhận phòng.",
       "Nếu đặt trong vòng 14 ngày trước khi nhận phòng, quý khách thanh toán toàn bộ (100%) một lần.",
@@ -42,6 +56,10 @@ export const B2C_PAYMENT_TERMS: Record<PublicLang, B2cTermsText> = {
       "Khi hủy, hoàn tiền theo tỷ lệ trong quy định hủy phòng dưới đây, và được hoàn đúng loại tiền và số tiền đã thanh toán (không quy đổi lại).",
   },
   en: {
+    heading: "Payment",
+    depositLabel: "Deposit",
+    balanceLabel: "Balance (approx.)",
+    fullLabel: "Full payment",
     paymentLines: [
       "To confirm your booking, please pay a 50% deposit. The balance will be requested 14 days before check-in.",
       "For bookings made within 14 days of check-in, the full amount (100%) is due at once.",
@@ -53,6 +71,10 @@ export const B2C_PAYMENT_TERMS: Record<PublicLang, B2cTermsText> = {
       "On cancellation, refunds follow the refund rates in the cancellation policy below, returned in the exact currency and amount you paid (no re-conversion).",
   },
   zh: {
+    heading: "付款说明",
+    depositLabel: "定金",
+    balanceLabel: "余款（约）",
+    fullLabel: "全额付款",
     paymentLines: [
       "如需确认预订，请支付 50% 定金。余款将在入住前 14 天通知。",
       "若在入住前 14 天以内预订，需一次性支付全额（100%）。",
@@ -64,6 +86,10 @@ export const B2C_PAYMENT_TERMS: Record<PublicLang, B2cTermsText> = {
       "取消时，退款依照以下取消政策的退款比例，并按您支付的原币种与金额退还（不重新折算）。",
   },
   ru: {
+    heading: "Оплата",
+    depositLabel: "Депозит",
+    balanceLabel: "Остаток (прибл.)",
+    fullLabel: "Полная оплата",
     paymentLines: [
       "Чтобы подтвердить бронирование, внесите депозит 50%. Остаток будет запрошен за 14 дней до заезда.",
       "При бронировании менее чем за 14 дней до заезда оплачивается вся сумма (100%) сразу.",
