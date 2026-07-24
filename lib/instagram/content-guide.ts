@@ -29,7 +29,7 @@ const FALLBACK_HEADLINES: HeadlineEntry[] = [
   { text: "온 가족 {maxGuests}명이 한 지붕 아래", tags: ["대가족"] },
   { text: "해변까지 딱 도보 {beachDistanceM}m", tags: ["해변근접"] },
   { text: "둘만의 푸꾸옥, 조용한 프라이빗 빌라", tags: ["커플"] },
-  { text: "{villaName}에서 보내는 우리만의 하루", tags: ["범용"] },
+  { text: "푸꾸옥에서 보내는 우리만의 하루", tags: ["범용"] },
 ];
 
 export interface HeadlineEntry {

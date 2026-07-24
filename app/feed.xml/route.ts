@@ -48,9 +48,8 @@ export async function GET() {
   try {
     const villas = await getPublicVillas();
     for (const v of villas) {
-      const where = v.areaNameKo ?? v.areaName ?? v.complex ?? "푸꾸옥";
       items.push({
-        title: `${where} ${v.name} — 침실 ${v.bedrooms}개 · 최대 ${v.maxGuests}인`,
+        title: `${v.publicLabel} · 최대 ${v.maxGuests}인`,
         path: blogPaths.villa(v.slug),
         description: (v.description ?? "").slice(0, 300),
         pubDate: v.publicListedAt ?? v.updatedAt,

@@ -31,7 +31,7 @@ export default function VillaList({ villas }: { villas: PublicVilla[] }) {
                 <Link href={blogPaths.villa(v.slug)} className="relative block aspect-[16/9] bg-slate-100">
                   <Image
                     src={v.photos[0].url}
-                    alt={`${where} ${v.name} 외관`}
+                    alt={`${v.publicLabel} 외관`}
                     fill
                     sizes="(max-width: 640px) 100vw, 640px"
                     className="object-cover"
@@ -41,7 +41,7 @@ export default function VillaList({ villas }: { villas: PublicVilla[] }) {
               <div className="p-4">
                 <p className="text-xs font-semibold text-amber-600">{where}</p>
                 <h3 className="mt-0.5 text-lg font-bold">
-                  <Link href={blogPaths.villa(v.slug)}>{v.name}</Link>
+                  <Link href={blogPaths.villa(v.slug)}>{v.publicLabel}</Link>
                 </h3>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">

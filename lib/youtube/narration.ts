@@ -15,7 +15,9 @@
 // ★ 대본 길이: 한국어 자연 발화 ≈ 초당 5~6음절. 15초 영상의 나레이션 가용 구간 ≈ 13초
 //   → 총 65~75자 → **컷당 15~18자 한 문장**. 자막 한 줄에도 딱 맞는 길이다.
 //
-// ★ 누수 0: 대본 입력에 원가·마진·판매가를 넣지 않는다(빌라명·침실 수·뷰 같은 공개 정보만).
+// ★ 누수 0: 대본 입력에 원가·마진·판매가를 넣지 않는다(단지·침실 수·뷰 같은 공개 정보만).
+//   ★ 고유 빌라 실명(name/nameVi)도 넣지 않는다(원칙 1, 2026-07-24) — 화면·음성에 실명이 나가면
+//     한국 여행객이 검색으로 직접 예약 페이지·공급자를 찾아 직거래로 우회할 수 있다.
 import { z } from "zod";
 import { extractJsonFromAIResponse } from "@/lib/ai-utils";
 import { GeminiNotConfiguredError } from "@/lib/gemini";
@@ -48,7 +50,7 @@ export const NARRATION_RULES = {
   sentenceMaxChars: 90,
   /**
    * 첫 문장(훅)만 예외적으로 길게 허용한다.
-   * 오프닝은 빌라 이름 + 침실 수 + 수영장 + 해변 거리를 한 번에 담아야 한다.
+   * 오프닝은 단지 + 침실 수 + 수영장 + 해변 거리를 한 번에 담아야 한다(고유 실명은 넣지 않는다).
    */
   hookMaxChars: 60,
   /** 문장 수 — CTA 포함. 컷보다 적다(한 문장이 여러 컷을 묶으므로). */
@@ -332,8 +334,11 @@ export interface NarrationClipHint {
 }
 
 export interface NarrationVillaContext {
-  villaName: string;
+  // ★ 고유 빌라 실명은 넣지 않는다(원칙 1, 2026-07-24) — 나레이션·화면에 실명이 나가면
+  //   검색 우회·직거래로 이어진다. 훅은 단지·핵심 특징으로만 만든다.
   complex?: string | null;
+  /** 한글 단지 병기(쏘나씨 등). 있으면 우선 — 영문 단지의 TTS 오독 방지. */
+  areaNameKo?: string | null;
   bedrooms?: number | null;
   hasPool?: boolean;
   beachDistanceM?: number | null;
@@ -380,7 +385,8 @@ export function buildIntroSpecs(ctx: NarrationVillaContext): string[] {
   return chips.slice(0, 4);
 }
 
-function buildPrompt(ctx: NarrationVillaContext): string {
+/** @internal 테스트에서 프롬프트 누수 검증용으로 노출. */
+export function buildNarrationPrompt(ctx: NarrationVillaContext): string {
   // 같은 공간이 여러 컷이면 번호를 매겨 모델이 "또 다른 ~"으로 뭉개지 않게 한다.
   const spaceSeen = new Map<string, number>();
   const spaceTotal = new Map<string, number>();
@@ -407,7 +413,10 @@ function buildPrompt(ctx: NarrationVillaContext): string {
     .join("\n");
 
   const facts: string[] = [];
-  if (ctx.complex) facts.push(`단지: ${ctx.complex}`);
+  // 단지명은 노출 OK지만 영문이면 TTS가 오독한다 — 한글 병기(areaNameKo)를 우선하고,
+  // 없으면 toKoreanReading으로 소리 나는 대로 바꿔 준다("Sonasea" → "소나시").
+  const complexSpoken = ctx.areaNameKo?.trim() || (ctx.complex ? toKoreanReading(ctx.complex) : "");
+  if (complexSpoken) facts.push(`단지: ${complexSpoken}`);
   if (ctx.bedrooms) facts.push(`침실 ${numToKo(ctx.bedrooms)} 개`);
   if (ctx.hasPool) facts.push("단독 사용 프라이빗 수영장 있음");
   if (ctx.beachDistanceM != null) {
@@ -431,8 +440,7 @@ function buildPrompt(ctx: NarrationVillaContext): string {
     "  나쁜 예 (금지):",
     "    '편안한 거실이에요' / '다이닝 공간이에요' / '깨끗한 주방이에요'  ← 컷마다 종결",
     "",
-    // ★ 이름은 **소리 나는 대로 한글**로 준다 — 영문을 그대로 주면 대본에 섞여 TTS가 어색하게 읽는다.
-    `빌라: ${toKoreanReading(ctx.villaName)}`,
+    // ★ 고유 빌라 실명은 주지 않는다(원칙 1) — 단지·특징만으로 훅을 만든다.
     facts.length ? `특징: ${facts.join(", ")}` : "",
     "",
     "컷 구성:",
@@ -442,7 +450,8 @@ function buildPrompt(ctx: NarrationVillaContext): string {
     "규칙:",
     `- 문장은 ${NARRATION_RULES.minLines}~${NARRATION_RULES.maxLines}개. **모든 컷이 빠짐없이 어느 문장엔가 속해야 한다.**`,
     "  비슷한 공간(거실·다이닝·주방 / 침실들)은 묶어 한 문장으로 흐르게 하면 자연스럽다.",
-    "- **첫 문장은 오프닝 훅이다.** 빌라 이름과 함께 핵심(침실 개수, 수영장, 해변까지 거리)을 담아라.",
+    "- **첫 문장은 오프닝 훅이다.** 단지 이름(있으면)과 핵심(침실 개수, 수영장, 해변까지 거리)을 담아라.",
+    "  ★ 고유 빌라 이름(브랜드·상호)은 절대 지어내거나 넣지 마라. 위 '특징'에 준 단지명까지만 쓴다.",
     `  첫 문장만 최대 ${NARRATION_RULES.hookMaxChars}자. 단순 인사('환영합니다')로 채우지 마라.`,
     `- 문장 하나는 최대 ${NARRATION_RULES.sentenceMaxChars}자.`,
     `- 각 컷에 붙는 조각(자막 한 장)은 ${NARRATION_RULES.minChars}~${NARRATION_RULES.maxChars}자. **첫 문장(훅)도 예외 없이 조각으로 쪼개라.**`,
@@ -514,7 +523,7 @@ export async function buildNarrationScript(
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(ctx) }] }],
+        contents: [{ parts: [{ text: buildNarrationPrompt(ctx) }] }],
         generationConfig: { temperature: 0.8, responseMimeType: "application/json" },
       }),
     }

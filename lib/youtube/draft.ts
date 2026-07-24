@@ -54,9 +54,11 @@ export function startOfKstDayUtc(now: Date = new Date()): Date {
 // planVillaDraft는 VillaDraftInput(공개 필드+사진)만 요구하므로 인스타 이력은 싣지 않는다.
 const YT_VILLA_SELECT = {
   id: true,
+  // name·nameVi는 **내부용**(로깅·운영자 식별·출력 파일명 baseName)으로만 남긴다 — 공개 생성기엔 안 넘긴다.
   name: true,
   nameVi: true,
   complex: true,
+  complexArea: { select: { nameKo: true } },
   bedrooms: true,
   maxGuests: true,
   beachDistanceM: true,
@@ -123,9 +125,8 @@ async function createTourDraft(
 
   const ordered = orderClipsForTour(usableTourClips(clips)); // 긴 워크스루는 제외(컷 설계 필요)
   const meta = await generateShortMeta({
-    name: villa.name,
-    nameVi: villa.nameVi,
     complex: villa.complex,
+    areaNameKo: villa.complexArea?.nameKo ?? null,
     bedrooms: villa.bedrooms,
     maxGuests: villa.maxGuests,
     beachDistanceM: villa.beachDistanceM,
@@ -138,8 +139,9 @@ async function createTourDraft(
   let lines: Awaited<ReturnType<typeof buildNarrationScript>> | undefined;
   try {
     const ctx: NarrationVillaContext = {
-      villaName: villa.name, // buildPrompt가 한글 읽기로 변환한다(toKoreanReading)
+      // ★ 고유 실명은 넘기지 않는다(원칙 1) — 단지·특징으로만 훅을 만든다.
       complex: villa.complex,
+      areaNameKo: villa.complexArea?.nameKo ?? null, // 영문 단지 TTS 오독 방지(한글 병기 우선)
       bedrooms: villa.bedrooms,
       hasPool: villa.hasPool,
       beachDistanceM: villa.beachDistanceM,
@@ -162,7 +164,7 @@ async function createTourDraft(
 
   const editParams = buildTourEditParams(
     villa.id,
-    { name: villa.name, bedrooms: villa.bedrooms, hasPool: villa.hasPool, beachDistanceM: villa.beachDistanceM },
+    { complex: villa.complex, bedrooms: villa.bedrooms, hasPool: villa.hasPool, beachDistanceM: villa.beachDistanceM },
     clips,
     lines
   );

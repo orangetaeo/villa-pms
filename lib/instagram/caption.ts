@@ -1,7 +1,8 @@
 // lib/instagram/caption.ts — 캡션·헤드라인·해시태그·금칙어 가드 (콘텐츠 생성 cron 사용)
 //
-// ★ 누수 절대 금지: 입력은 빌라 공개 정보만(name·complex·bedrooms·maxGuests·beachDistanceM·features·
+// ★ 누수 절대 금지: 입력은 빌라 공개 정보만(complex·bedrooms·maxGuests·beachDistanceM·features·
 //   hasPool·breakfast). 원가·마진·판매가·supplier 정보는 이 모듈에 들어오지 않는다(호출부 select 책임 + 타입 봉인).
+// ★ 고유 실명(name/nameVi)도 이 타입에 없다(원칙 1, 2026-07-24) — 공개 표시명은 publicVillaLabel(지역·특징).
 //
 // 캡션 = Gemini 본문(카피 가이드 주입) + 결정형 해시태그(로테이션) 조합. Gemini 미설정·실패 시 템플릿 폴백.
 // Gemini는 gemini.ts와 동일한 키·모델·REST 규약을 쓰되, 캡션 전용 프롬프트라 호출을 로컬 구현한다.
@@ -13,15 +14,19 @@ import {
   loadCopyGuideRaw,
   type HeadlineEntry,
 } from "@/lib/instagram/content-guide";
+import { publicVillaLabel } from "@/lib/marketing/public-name";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 const GEMINI_TIMEOUT_MS = 30_000;
 
-/** 캡션 생성 입력 — 빌라 공개 정보만(마진·원가·판매가·supplier 없음). */
+/**
+ * 캡션 생성 입력 — 빌라 공개 정보만(마진·원가·판매가·supplier 없음).
+ * ★ 고유 실명(name/nameVi)은 없다(원칙 1) — 공개 표시명은 publicVillaLabel로 계산한다.
+ */
 export interface VillaPublicInfo {
-  name: string;
-  nameVi?: string | null;
   complex: string | null;
+  /** 한글 단지 병기(쏘나씨 등). publicVillaLabel에서 complex보다 우선. 없으면 undefined. */
+  areaNameKo?: string | null;
   bedrooms: number;
   maxGuests: number;
   beachDistanceM: number | null;
@@ -29,6 +34,16 @@ export interface VillaPublicInfo {
   breakfastAvailable: boolean;
   /** VillaFeature.featureKey 목록 (viewSea·privatePool·golfNearby·bbq 등) */
   featureKeys: string[];
+}
+
+/** 공개 표시명 — VillaPublicInfo → publicVillaLabel(지역·특징 조합). 고유 실명 미사용. */
+export function publicLabelFor(v: VillaPublicInfo): string {
+  return publicVillaLabel({
+    complex: v.complex,
+    areaNameKo: v.areaNameKo,
+    bedrooms: v.bedrooms,
+    hasPool: v.hasPool,
+  });
 }
 
 export type IgContentKind = "VILLA_SHOWCASE" | "SERVICE" | "INFO" | "REELS";
@@ -76,10 +91,12 @@ export function captionForPhotoSpace(space: PhotoSpace, v: VillaPublicInfo): str
 }
 
 // ── 변수 치환 ──
+// ★ {villaName}·{complex}는 고유 실명이 아니라 공개 표시명(publicLabelFor)/단지명으로 치환한다.
+//   copy-guide.md에 {villaName} 템플릿이 남아 있어도 실명이 새지 않게 하는 마지막 방어선이다.
 function substituteVars(text: string, v: VillaPublicInfo): string {
   return text
-    .replace(/\{villaName\}/g, v.name)
-    .replace(/\{complex\}/g, v.complex ?? v.name)
+    .replace(/\{villaName\}/g, publicLabelFor(v))
+    .replace(/\{complex\}/g, v.complex ?? "푸꾸옥")
     .replace(/\{bedrooms\}/g, String(v.bedrooms))
     .replace(/\{maxGuests\}/g, String(v.maxGuests))
     .replace(/\{beachDistanceM\}/g, v.beachDistanceM != null ? String(v.beachDistanceM) : "");
@@ -162,16 +179,16 @@ interface GeminiGenerateResponse {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
 }
 
-function buildCaptionPrompt(v: VillaPublicInfo, kind: IgContentKind): string {
+/** @internal 테스트에서 프롬프트 누수 검증용으로 노출. */
+export function buildCaptionPrompt(v: VillaPublicInfo, kind: IgContentKind): string {
   const copyGuide = loadCopyGuideRaw();
   const guideBlock = copyGuide
     ? `다음은 카피 가이드(정본)다. 브랜드 보이스·톤·이모지 규칙·금칙어를 반드시 지켜라:\n<<<GUIDE\n${copyGuide.slice(0, 6000)}\nGUIDE>>>`
     : `브랜드 보이스: 먼저 다녀온 한국인 친구가 좋은 빌라를 소개하는 따뜻한 존댓말. 과장·가격 박제·최상급 표현 금지.`;
 
-  // 입력 데이터는 공개 정보만 — 원가·마진·판매가·supplier 절대 미포함.
+  // 입력 데이터는 공개 정보만 — 원가·마진·판매가·supplier·고유 실명 절대 미포함.
   const data = {
     complex: v.complex ?? "",
-    villaName: v.name,
     bedrooms: v.bedrooms,
     maxGuests: v.maxGuests,
     beachDistanceM: v.beachDistanceM,
@@ -231,7 +248,6 @@ async function generateCaptionBody(
 
 /** Gemini 실패 시 폴백 캡션 본문(템플릿 A/B 결정형). */
 function fallbackCaptionBody(v: VillaPublicInfo, kind: IgContentKind, headline: string): string {
-  const complex = v.complex ?? v.name;
   if (kind === "SERVICE") {
     return [
       `빌라에서 편하게 즐기는 푸꾸옥 🌴`,
@@ -244,7 +260,7 @@ function fallbackCaptionBody(v: VillaPublicInfo, kind: IgContentKind, headline: 
       `📩 궁금한 점은 프로필 링크에서 카카오톡으로 문의 주세요!`,
     ].join("\n");
   }
-  const lines: string[] = [`🌴 푸꾸옥 ${complex} 프라이빗 풀빌라`, ``, `${headline}.`];
+  const lines: string[] = [`🌴 ${publicLabelFor(v)}`, ``, `${headline}.`];
   lines.push(`${v.bedrooms}베드룸에 최대 ${v.maxGuests}명, 우리 가족만의 시간 어때요?`, ``);
   if (v.hasPool) lines.push(`✔️ 전용 수영장`);
   if (v.beachDistanceM != null) lines.push(`✔️ 해변까지 도보 ${v.beachDistanceM}m 남짓`);

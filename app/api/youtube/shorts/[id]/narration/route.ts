@@ -87,8 +87,8 @@ async function loadShort(id: string) {
       editParamsJson: true,
       villa: {
         select: {
-          name: true,
           complex: true,
+          complexArea: { select: { nameKo: true } },
           bedrooms: true,
           hasPool: true,
           beachDistanceM: true,
@@ -159,8 +159,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const hints = clipHintsOf(short.editParamsJson);
   const ctx: NarrationVillaContext = {
-    villaName: short.villa.name,
+    // ★ 고유 실명 미사용(원칙 1) — 단지·특징으로만. 영문 단지는 한글 병기로 TTS 오독 방지.
     complex: short.villa.complex,
+    areaNameKo: short.villa.complexArea?.nameKo ?? null,
     bedrooms: short.villa.bedrooms,
     hasPool: short.villa.hasPool,
     beachDistanceM: short.villa.beachDistanceM,
