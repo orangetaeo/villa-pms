@@ -103,7 +103,18 @@ export default function HeroCarousel({
             tabIndex={index === i + 1 ? 0 : -1}
             className="relative block h-full w-full shrink-0"
           >
-            <Image src={p.imageUrl} alt={p.title} fill sizes="100vw" priority={i === 0} className="object-cover" />
+            {/* LCP: 실제 첫 화면(슬라이드0) 이미지 한 장만 priority. 히어로 이미지가 있으면
+              이 블로그 이미지들은 화면 밖(슬라이드1+)이므로 프리로드하지 않는다(대역폭 경쟁 방지).
+              히어로 이미지가 없을 때만 첫 블로그 이미지가 LCP가 되어 priority를 받는다. */}
+          <Image
+            src={p.imageUrl}
+            alt={p.title}
+            fill
+            sizes="100vw"
+            priority={i === 0 && !heroImageUrl}
+            loading={i === 0 && !heroImageUrl ? undefined : "lazy"}
+            className="object-cover"
+          />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/30 to-slate-900/10" />
             <div className="absolute inset-x-0 bottom-0 p-5">
               <h2 className="line-clamp-2 text-xl font-extrabold leading-snug text-white sm:text-2xl">{p.title}</h2>
@@ -136,14 +147,19 @@ export default function HeroCarousel({
           </button>
           <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1.5">
             {Array.from({ length: total }).map((_, i) => (
+              // 터치 타깃 ≥24px 확보(WCAG 2.5.8) — 시각적 막대는 작게 유지하되 클릭영역만 넓힌다.
               <button
                 key={i}
                 type="button"
                 onClick={() => go(i)}
                 aria-label={`${i + 1}번째 슬라이드`}
                 aria-current={i === index}
-                className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/55"}`}
-              />
+                className="grid h-6 min-w-6 place-items-center"
+              >
+                <span
+                  className={`block h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/55"}`}
+                />
+              </button>
             ))}
           </div>
         </>

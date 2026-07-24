@@ -9,7 +9,8 @@ export function VillaGoHeaderLogo() {
   return (
     <Link href="/" className="flex items-center gap-2" aria-label="Villa GO 홈">
       <VillaGoMark className="h-7 w-auto" />
-      <span className="text-lg font-extrabold tracking-tight text-teal-600">Villa GO</span>
+      {/* 대비: 흰 헤더 위 teal-600(2.9:1)은 WCAG 미달 → teal-700(4.3:1)로 상향 */}
+      <span className="text-lg font-extrabold tracking-tight text-teal-700">Villa GO</span>
     </Link>
   );
 }

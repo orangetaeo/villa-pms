@@ -14,7 +14,8 @@
 
 body {
   /* Noto Sans KR 폴백 — 한글 글리프 없는 폰트로 인한 글자 세로 낙하 방지 (2차 전체 회의) */
-  font-family: 'Be Vietnam Pro', 'Noto Sans KR', sans-serif;
+  /* next/font 셀프호스팅 변수 참조(app/fonts.ts) — 미해석 시 시스템 sans로 폴백 */
+  font-family: var(--font-be-vietnam), var(--font-noto-kr), sans-serif;
   -webkit-tap-highlight-color: transparent;
   word-break: keep-all;
 }

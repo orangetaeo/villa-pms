@@ -3,15 +3,14 @@ import { NextIntlClientProvider } from "next-intl";
 import { cookies } from "next/headers";
 import "./globals.css";
 import SplashIntro from "@/components/splash-intro";
+import { fontVariables } from "./fonts";
 
 // T-splash-intro — 페인트 전 동기 게이트: sessionStorage(세션당 1회)·reduced-motion·
 // 제외경로(/p·/g) 판정 후 html[data-splash]를 세팅한다(스플래시 표시는 CSS가 결정).
 // 어떤 예외든 조용히 스킵(스플래시 미표시 폴백). ※ 향후 CSP enforce 시 nonce 필요.
-//   ★ 공개 홈 `/`는 인트로 노출 대상이다(테오 지시 2026-07-24): villa-go.net 첫 진입 시
-//     브랜드 인트로를 보여준다. 세션당 1회·reduced-motion 존중·2.3s 자동 종료라 인터스티셜
-//     영향은 제한적. 다만 `/blog/**`(순수 SEO 콘텐츠 랜딩)는 계속 제외한다 —
-//     검색 유입의 첫인상을 스플래시가 잡아먹지 않도록.
-const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p==='/blog'||p.indexOf('/blog/')===0||p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0||p==='/card'||p.indexOf('/card/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
+//   ★ T-seo-s1: 공개 SEO 트리(`/` 공개 홈·`/blog/**`)도 제외한다. 전면 오버레이가 본문을
+//     가리면 크롤러·방문자 모두에게 인터스티셜로 보이고, 검색 유입의 첫인상을 스플래시가 잡아먹는다.
+const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p==='/'||p==='/blog'||p.indexOf('/blog/')===0||p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0||p==='/card'||p.indexOf('/card/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
 
 // 검색엔진 소유확인 — 네이버 서치어드바이저·Google Search Console·Bing Webmaster.
 //   값은 env로만 주입한다(테오가 각 콘솔에서 발급). 미설정이면 메타 자체가 출력되지 않는다.
@@ -68,9 +67,13 @@ export default async function RootLayout({
   const splashTagline =
     lang === "ko" ? "찾던 그 빌라, 여기 있어요" : "Villa bạn tìm, có ở đây";
   return (
-    <html lang={lang}>
+    <html lang={lang} className={fontVariables}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: SPLASH_GATE }} />
+        {/* 본문 폰트(Be Vietnam Pro·Public Sans·Noto Sans KR)는 next/font로 셀프호스팅
+            한다(app/fonts.ts) — 외부 렌더블로킹 CSS 제거 + display:swap로 LCP 개선.
+            아이콘 폰트(Material Symbols)만 외부 링크로 남기되 &display=swap을 붙여
+            텍스트/아이콘 페인트를 막지 않게 한다. preconnect는 이 아이콘 폰트용. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -78,11 +81,7 @@ export default async function RootLayout({
           crossOrigin=""
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&family=Public+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
           rel="stylesheet"
         />
       </head>

@@ -106,6 +106,8 @@ export default async function PublicHome({ villas, areas, villaPosts, locale }: 
         </div>
       </header>
 
+      {/* 본문 랜드마크 — 스크린리더 내비게이션 + Best Practices(main landmark). 헤더/푸터/고정CTA는 밖. */}
+      <main>
       {/* 히어로 롤링 — 슬라이드0=브랜드 히어로, 이후=빌라 블로그(제목·요약 오버레이) */}
       <HeroCarousel
         heroImageUrl={heroPhoto}
@@ -167,7 +169,10 @@ export default async function PublicHome({ villas, areas, villaPosts, locale }: 
         <section className="px-5 py-8">
           <div className="flex items-baseline justify-between">
             <h2 className="text-xl font-bold">{t.featuredTitle}</h2>
-            <Link href={blogPaths.villas(locale)} className="text-sm font-semibold text-teal-700">
+            <Link
+              href={blogPaths.villas(locale)}
+              className="inline-flex min-h-6 items-center py-1 text-sm font-semibold text-teal-700"
+            >
               {t.viewAll}
             </Link>
           </div>
@@ -287,6 +292,8 @@ export default async function PublicHome({ villas, areas, villaPosts, locale }: 
           </li>
         </ul>
       </section>
+
+      </main>
 
       {/* 푸터 — Google Ads 랜딩 요건: 사업자 정보·연락 수단·개인정보처리방침 */}
       <footer className="border-t border-slate-100 px-5 py-8 text-sm text-slate-500">

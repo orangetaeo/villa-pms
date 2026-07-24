@@ -39,11 +39,12 @@ const config: Config = {
       },
       fontFamily: {
         // 운영자(ADMIN) 폰트 — DESIGN.md 한글 폴백 규칙
-        admin: ["Public Sans", "Noto Sans KR", "sans-serif"],
-        headline: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
-        display: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
-        body: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
-        label: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+        // next/font 셀프호스팅 CSS 변수 참조(app/fonts.ts) — 외부 폰트 링크 제거(LCP)
+        admin: ["var(--font-public-sans)", "var(--font-noto-kr)", "sans-serif"],
+        headline: ["var(--font-be-vietnam)", "var(--font-noto-kr)", "sans-serif"],
+        display: ["var(--font-be-vietnam)", "var(--font-noto-kr)", "sans-serif"],
+        body: ["var(--font-be-vietnam)", "var(--font-noto-kr)", "sans-serif"],
+        label: ["var(--font-be-vietnam)", "var(--font-noto-kr)", "sans-serif"],
       },
     },
   },
