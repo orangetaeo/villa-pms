@@ -5,9 +5,9 @@
 //
 // ★ 발행하지 않는다. 이 cron은 **승인 대기**까지만 만든다(사람 승인 게이트 = 스팸 정책 방어선).
 // ★ 누수 0: 빌라 정보는 lib/seo/public-villa.ts 관문 통과분만, 그중에서도 규모·시설 요약뿐.
-// ★ 사진 출처가 글 종류마다 다르다: 빌라 글 = 그 빌라의 실사진, 가이드 글 = 자료 사진 라이브러리
-//   (/marketing/seo/media, T-seo-media-library). 가이드 글에 빌라 사진을 쓰지 않는 이유는
-//   본문 주제와 무관한 이미지가 되기 때문이다(테오 지적 2026-07-22).
+// ★ 사진 출처가 글 종류마다 다르다: 빌라 글 = 그 빌라의 실사진, 가이드 글 = **자료 라이브러리 + 공개 빌라 사진 혼합**
+//   (/marketing/seo/media, T-seo-media-library / 운영자 결정 2026-07-24). 자료 라이브러리는 비(非)빌라
+//   (풍경·장소·먹거리) 전용이 되고, 빌라 사진은 getPublicVillas 관문을 통과한 공개본을 pickGuideImages가 섞는다.
 import { SeoArticleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron-auth";
@@ -29,7 +29,13 @@ import {
   composeVillaBody,
   interleaveImages,
 } from "@/lib/seo/article-draft";
-import { pickMediaForTopic, toPickedImages, markMediaUsed, MAX_MEDIA_PER_ARTICLE } from "@/lib/seo/media";
+import {
+  pickMediaForTopic,
+  pickGuideImages,
+  toPickedImages,
+  markMediaUsed,
+  MAX_MEDIA_PER_ARTICLE,
+} from "@/lib/seo/media";
 import {
   getServiceCandidates,
   generateServiceArticleBody,
@@ -250,7 +256,7 @@ async function handle(req: Request) {
       continue;
     }
 
-    // ── ④ 가이드 글 — 사진은 자료 사진 라이브러리에서만 온다 ──
+    // ── ④ 가이드 글 — 사진은 자료 라이브러리 + 공개 빌라 사진 혼합 ──
     const topic = pickTopic(usedKeys);
     if (!topic) {
       skipped.push("주제 풀 소진");
@@ -269,13 +275,18 @@ async function handle(req: Request) {
       continue;
     }
 
-    // ★ 가이드 글의 사진은 **빌라 사진이 아니라 자료 사진 라이브러리**에서만 온다(T-seo-media-library).
-    //   빌라 사진을 끼우면 본문과 무관한 이미지가 되기 때문. 라이브러리가 비면 사진 없이 진행한다
-    //   — 커버는 브랜드 이미지로 채운다(공유 썸네일이 비면 CTR이 떨어진다).
-    const media = await pickMediaForTopic(topic.key, MAX_MEDIA_PER_ARTICLE);
-    const guideCover = media[0]?.url ?? BRAND_FALLBACK_IMAGE;
+    // ★ 가이드 글 사진 = **자료 라이브러리(주제+범용) + 공개 빌라 사진 혼합**(운영자 결정 2026-07-24).
+    //   빌라 사진은 업로드 시점에 이미 워터마크가 구워진 파일이라 여기서 재워터마크하지 않는다(pickGuideImages 주석).
+    //   둘 다 있으면 최소 각 1장씩 섞고, 한쪽이 비면 나머지로 진행한다. 둘 다 비면 사진 없이 진행하고
+    //   커버는 브랜드 이미지로 채운다(공유 썸네일이 비면 CTR이 떨어진다).
+    const { images: guideImages, usedMediaIds } = await pickGuideImages(
+      topic.key,
+      villaPool,
+      MAX_MEDIA_PER_ARTICLE
+    );
+    const guideCover = guideImages[0]?.url ?? BRAND_FALLBACK_IMAGE;
     // 첫 장은 커버로 쓰므로 본문에는 두 번째부터 — 같은 사진 중복 노출 방지(빌라 글과 동일 규칙).
-    const guideBody = interleaveImages(draft.blocks, toPickedImages(media.slice(1)));
+    const guideBody = interleaveImages(draft.blocks, guideImages.slice(1));
 
     const row = await prisma.seoArticle.create({
       data: {
@@ -294,7 +305,8 @@ async function handle(req: Request) {
     });
     created.push(row);
     // 사용 기록은 글 저장 성공 뒤에만 — 저장이 실패한 회차가 사진 순번을 소비하면 안 된다.
-    await markMediaUsed(media.map((m) => m.id));
+    //   ★ 최종 선택된 자료 사진만 소비한다(혼합에서 잘린 라이브러리 사진은 건드리지 않는다).
+    await markMediaUsed(usedMediaIds);
 
     await writeAuditLog({
       userId: null,
@@ -309,7 +321,9 @@ async function handle(req: Request) {
         flaggedTerms: { new: draft.flaggedTerms },
         kind: { new: "guide" },
         blocks: { new: guideBody.length },
-        photos: { new: media.length },
+        photos: { new: guideImages.length },
+        libraryPhotos: { new: usedMediaIds.length },
+        villaPhotos: { new: guideImages.length - usedMediaIds.length },
       },
     });
   }
