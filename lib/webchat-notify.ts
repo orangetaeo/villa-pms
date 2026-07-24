@@ -37,7 +37,7 @@ function pruneExpired(now: number): void {
 }
 
 /** previewKo를 120자로 절삭 — null이면 "(번역 없음)". 개행은 공백으로 접어 한 줄 미리보기. */
-function buildPreview(previewKo: string | null): string {
+export function buildPreview(previewKo: string | null): string {
   if (previewKo == null) return "(번역 없음)";
   const flat = previewKo.replace(/\s+/g, " ").trim();
   if (flat.length === 0) return "(번역 없음)";
