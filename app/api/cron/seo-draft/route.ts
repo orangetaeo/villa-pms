@@ -28,6 +28,7 @@ import {
   pickVillaPhotos,
   composeVillaBody,
   interleaveImages,
+  spreadImageGroups,
 } from "@/lib/seo/article-draft";
 import {
   pickMediaForTopic,
@@ -170,11 +171,13 @@ async function handle(req: Request) {
         continue;
       }
       // 사진: 상품 실사진(카탈로그) 우선, 모자라면 자료 사진 라이브러리에서 주제 태그로 채운다.
-      const itemPhotos = pickServicePhotos(svc.topic, svc.items, 3);
-      const libMedia = await pickMediaForTopic(key, Math.max(0, MAX_MEDIA_PER_ARTICLE - itemPhotos.length));
+      // ★ 사진을 넉넉히 담아(최대 6장) 소제목마다 그리드 갤러리로 흩뿌린다(테오 지적 2026-07-24).
+      const SERVICE_PHOTO_MAX = 6;
+      const itemPhotos = pickServicePhotos(svc.topic, svc.items, SERVICE_PHOTO_MAX);
+      const libMedia = await pickMediaForTopic(key, Math.max(0, SERVICE_PHOTO_MAX - itemPhotos.length));
       const sPhotos = [...itemPhotos, ...toPickedImages(libMedia)];
       const sCover = sPhotos[0]?.url ?? BRAND_FALLBACK_IMAGE;
-      const sBody = interleaveImages(sDraft.blocks, sPhotos.slice(1));
+      const sBody = spreadImageGroups(sDraft.blocks, sPhotos.slice(1));
 
       const sRow = await prisma.seoArticle.create({
         data: {

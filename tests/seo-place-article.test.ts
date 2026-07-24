@@ -16,6 +16,8 @@ import {
   buildPlaceArticlePrompt,
   buildPlaceArticleTitle,
   pickPlacePhotos,
+  pickPlaceGroups,
+  PHOTOS_PER_PLACE_BUNDLE,
   tidyHeadings,
   orderSinglePlacePhotos,
   spreadImages,
@@ -164,7 +166,7 @@ describe("★ 지어내기·변하는 정보 방지", () => {
 });
 
 describe("사진·카테고리", () => {
-  it("장소당 1장씩, 중복 URL은 건너뛴다", () => {
+  it("묶음 글: 장소당 최대 여러 장, 중복 URL은 건너뛴다", () => {
     const photos = pickPlacePhotos([
       place({
         id: "p1",
@@ -188,6 +190,46 @@ describe("사진·카테고리", () => {
     expect(photos).toEqual([
       { url: "https://cdn.r2.dev/a.jpg", alt: "카페 A 내부", caption: "카페 A", mediaId: "m1", watermarkedUrl: null },
     ]);
+  });
+
+  it("★ 묶음 글은 장소당 여러 장을 모은다 — 예전 1장에서 늘림(테오 지적 2026-07-24)", () => {
+    const mk = (id: string, n: number) =>
+      place({
+        id,
+        category: "restaurant",
+        name: id,
+        photos: Array.from({ length: n }, (_, k) => ({
+          id: `${id}-${k}`,
+          url: `https://cdn.r2.dev/${id}-${k}.jpg`,
+          alt: `${id} ${k}`,
+          caption: null,
+          kind: "food",
+        })),
+      } as Partial<PlaceRow> & { id: string; category: string });
+    const groups = pickPlaceGroups([mk("A", 5), mk("B", 2)]); // 묶음(2곳)
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toHaveLength(PHOTOS_PER_PLACE_BUNDLE); // A는 상한(3)까지만
+    expect(groups[1]).toHaveLength(2); // B는 2장 전부
+    // 각 그룹은 그 가게 사진만(사진-장소 짝 유지)
+    expect(groups[0].every((p) => p.url.includes("A-"))).toBe(true);
+    expect(groups[1].every((p) => p.url.includes("B-"))).toBe(true);
+  });
+
+  it("단독 글은 한 그룹에 그 가게 사진을 역할 순서로 많이 담는다", () => {
+    const photos = Array.from({ length: 10 }, (_, k) => ({
+      id: `m${k}`,
+      url: `https://cdn.r2.dev/m${k}.jpg`,
+      alt: `사진 ${k}`,
+      caption: null,
+      kind: "food",
+    }));
+    const one = place({ id: "solo", category: "restaurant", photos } as Partial<PlaceRow> & {
+      id: string;
+      category: string;
+    });
+    const groups = pickPlaceGroups([one]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].length).toBeGreaterThan(PHOTOS_PER_PLACE_BUNDLE); // 단독은 상한이 훨씬 큼
   });
 
   it("카테고리 키는 slug로 쓸 수 있고 중복이 없다", () => {

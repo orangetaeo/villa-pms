@@ -15,7 +15,13 @@ import type { DbClient } from "@/lib/availability";
 import { findBannedTerms } from "@/lib/instagram/caption";
 import { copyGuidePromptBlock } from "@/lib/instagram/content-guide";
 import { parseArticleBody } from "@/lib/seo/article";
-import { extractJsonArray, type DraftResult, type PickedImage } from "@/lib/seo/article-draft";
+import {
+  extractJsonArray,
+  interleaveImageGroups,
+  spreadImageGroups,
+  type DraftResult,
+  type PickedImage,
+} from "@/lib/seo/article-draft";
 import type { SeoArticleCategory } from "@/lib/seo/categories";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
@@ -250,29 +256,50 @@ export function orderSinglePlacePhotos<T extends { kind: string | null }>(photos
 }
 
 /**
- * 묶음 글은 **장소당 1장**(한 가게가 글을 잡아먹지 않게), 단독 글은 그 가게 사진을 역할 순서로 여러 장.
+ * 묶음 글에서 **장소당** 쓰는 사진 수 — 예전엔 1장이라 28장 올려도 1장만 나갔다(테오 지적 2026-07-24).
+ * 장소당 몇 장씩 모아 그 가게 소제목 아래 작은 그리드로 보여준다. 한 가게가 글을 독차지하지 않게 상한만 둔다.
+ */
+export const PHOTOS_PER_PLACE_BUNDLE = 3;
+
+/** 워터마크 파생본 캐시 갱신을 위해 사진 id·워터마크 URL을 함께 싣는 픽. */
+export type PlacePickedImage = PickedImage & { mediaId: string; watermarkedUrl: string | null };
+
+/**
+ * 장소별로 사진을 골라 **그룹 배열**로 돌려준다(그룹 1개 = 한 장소).
+ *   · 단독 글: 그 가게 사진을 역할 순서(orderSinglePlacePhotos)로 최대 maxForSingle장
+ *   · 묶음 글: 장소마다 최대 PHOTOS_PER_PLACE_BUNDLE장 — 그 장소 소제목 아래 그리드로 묶인다
+ * 중복 URL은 전역에서 한 번만(가게 A·B가 같은 사진을 올린 경우 한쪽만).
  * alt는 업로드 때 사람이 쓴 문장 그대로 — 사진 설명을 AI가 짓지 않는다.
  */
-export function pickPlacePhotos(places: PlaceRow[], maxForSingle = MAX_PHOTOS_SINGLE_PLACE): PickedImage[] {
-  const out: PickedImage[] = [];
-  const seen = new Set<string>();
+export function pickPlaceGroups(
+  places: PlaceRow[],
+  opts?: { single?: number; bundle?: number }
+): PlacePickedImage[][] {
   const single = places.length === 1;
-  for (const p of places) {
-    const ordered = single ? orderSinglePlacePhotos(p.photos, maxForSingle) : p.photos.slice(0, 1);
+  const perSingle = opts?.single ?? MAX_PHOTOS_SINGLE_PLACE;
+  const perBundle = opts?.bundle ?? PHOTOS_PER_PLACE_BUNDLE;
+  const seen = new Set<string>();
+  return places.map((p) => {
+    const ordered = single ? orderSinglePlacePhotos(p.photos, perSingle) : p.photos.slice(0, perBundle);
+    const out: PlacePickedImage[] = [];
     for (const photo of ordered) {
       if (seen.has(photo.url)) continue;
       seen.add(photo.url);
-      // mediaId·watermarkedUrl을 함께 실어 보낸다 — 워터마크 파생본 캐시를 갱신하려면 사진 id가 필요하다.
       out.push({
         url: photo.url,
         alt: photo.alt,
         caption: photo.caption ?? p.name,
         mediaId: photo.id,
         watermarkedUrl: photo.watermarkedUrl ?? null,
-      } as PickedImage & { mediaId: string; watermarkedUrl: string | null });
+      });
     }
-  }
-  return out;
+    return out;
+  });
+}
+
+/** 그룹을 펼친 평면 목록(썸네일 개수·기존 호출부 호환용). */
+export function pickPlacePhotos(places: PlaceRow[], maxForSingle = MAX_PHOTOS_SINGLE_PLACE): PickedImage[] {
+  return pickPlaceGroups(places, { single: maxForSingle }).flat();
 }
 
 /**
@@ -422,24 +449,31 @@ export async function createPlaceArticleDraft(
   if (!draft) return { ok: false, reason: "생성 실패" };
   if (!deps.helpers.isArticlePublishable(draft.blocks)) return { ok: false, reason: "분량·구조 하한 미달" };
 
-  const rawPhotos = pickPlacePhotos(places);
+  // 장소별 그룹 → 각 그룹의 사진들이 그 가게 소제목 아래 **연속**으로 들어가 그리드 갤러리로 묶인다.
+  const groups = pickPlaceGroups(places);
   // ★ 블로그에 나가는 이미지는 **워터마크 필수**(테오 지시 2026-07-23). 파생본이 없으면 여기서 굽는다.
-  //   실패 시 원본 URL로 폴백 — 워터마크 때문에 글 생성을 멈추지 않는다.
-  const photos = await Promise.all(
-    rawPhotos.map(async (p) => ({ ...p, url: await deps.watermark(p) }))
+  //   실패 시 원본 URL로 폴백 — 워터마크 때문에 글 생성을 멈추지 않는다. 그룹 구조는 유지한다.
+  const wmGroups = await Promise.all(
+    groups.map((g) => Promise.all(g.map(async (p) => ({ ...p, url: await deps.watermark(p) }))))
   );
+  const flat = wmGroups.flat();
   // ★ 첫 장은 **커버 전용**이다 — 본문에 또 넣으면 같은 사진이 두 번 나온다(테오 실측 2026-07-23).
-  const bodyPhotos = photos.slice(1);
-  // 단독 글은 사진이 많아 소제목 뒤 배치로는 다 못 넣는다 → 문단 사이에 고르게 흩뿌린다.
+  const firstIdx = wmGroups.findIndex((g) => g.length > 0);
+  const cover = firstIdx >= 0 ? wmGroups[firstIdx][0] : null;
+  // 커버가 속한 그룹에서만 첫 장을 뺀다(나머지 장소 그룹은 그대로).
+  const bodyGroups = wmGroups.map((g, i) => (i === firstIdx ? g.slice(1) : g));
+  const dblocks = dedupeParagraphs(draft.blocks);
+  // 단독 글: 한 가게 사진이 많아 소제목 수만큼 그룹으로 쪼개 고르게 흩뿌린다.
+  // 묶음 글: 장소마다 그 가게 사진 묶음을 소제목 아래에 배치(사진-장소 짝 유지).
   const body =
     places.length === 1
-      ? spreadImages(dedupeParagraphs(draft.blocks), bodyPhotos)
-      : deps.helpers.interleaveImages(dedupeParagraphs(draft.blocks), bodyPhotos);
+      ? spreadImageGroups(dblocks, bodyGroups[firstIdx >= 0 ? firstIdx : 0] ?? [])
+      : interleaveImageGroups(dblocks, bodyGroups);
   const title = buildPlaceArticleTitle(category, places, seq);
   const summary = deps.helpers.buildSummary(draft.blocks);
   // 대표 썸네일 — 커버 사진(워터마크본) 위에 제목·후킹·브랜드를 얹는다. 실패하면 사진 URL로 폴백.
-  const thumbnailUrl = photos[0]
-    ? await deps.renderThumbnail(photos[0].url, {
+  const thumbnailUrl = cover
+    ? await deps.renderThumbnail(cover.url, {
         title: places.length === 1 ? places[0].name : `푸꾸옥 ${category.label}`,
         hook: buildThumbnailHook(places[0].oneLiner),
         eyebrow: [places[0].area ? `푸꾸옥 ${places[0].area}` : "푸꾸옥", category.label].join(" · "),
@@ -457,7 +491,7 @@ export async function createPlaceArticleDraft(
       topicKey: key,
       // 장소 글 대분류 — cron·운영자 수동 생성 모두 이 함수를 지나므로 여기 한 곳이면 충분하다.
       category: "place" satisfies SeoArticleCategory,
-      coverPhotoUrl: thumbnailUrl ?? photos[0]?.url ?? deps.helpers.brandFallbackImage,
+      coverPhotoUrl: thumbnailUrl ?? cover?.url ?? deps.helpers.brandFallbackImage,
       status: "PENDING_APPROVAL",
       flaggedTerms: draft.flaggedTerms.length > 0 ? draft.flaggedTerms : undefined,
       createdBy,
@@ -470,7 +504,7 @@ export async function createPlaceArticleDraft(
     row.id,
     db
   );
-  return { ok: true, ...row, photos: photos.length };
+  return { ok: true, ...row, photos: flat.length };
 }
 
 export function buildPlaceArticlePrompt(c: PlaceCategory, places: PlaceRow[]): string {

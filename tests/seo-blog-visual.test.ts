@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import { dedupeParagraphs, buildThumbnailHook } from "@/lib/seo/place-article";
 import { toArticleHtml, escapeHtml } from "@/lib/seo/article-html";
 import { buildWatermarkSvg } from "@/lib/seo/watermark-server";
+import type { ArticleBlock } from "@/lib/seo/article";
 
 describe("중복 제거", () => {
   it("★ 같은 문단이 두 번 나오면 하나만 남긴다(모델이 리드 문단을 반복한 실사례)", () => {
@@ -64,6 +65,29 @@ describe("상세페이지 HTML", () => {
     expect(html).toContain('<img src="https://cdn.r2.dev/a.jpg" alt="사진 설명"');
     expect(html).toContain("<figcaption>캡션</figcaption>");
     expect(html).toContain("<li>가</li><li>나</li>");
+  });
+
+  it("★ 연속 이미지는 그리드 갤러리로, 단독 이미지는 기존 figure로 렌더한다", () => {
+    const many: ArticleBlock[] = [
+      { type: "h2", text: "음식" },
+      { type: "p", text: "본문" },
+      { type: "img", url: "https://cdn.r2.dev/1.jpg", alt: "1" },
+      { type: "img", url: "https://cdn.r2.dev/2.jpg", alt: "2" },
+      { type: "img", url: "https://cdn.r2.dev/3.jpg", alt: "3" },
+      { type: "img", url: "https://cdn.r2.dev/4.jpg", alt: "4" },
+    ];
+    const html = toArticleHtml(many, { title: "t" });
+    expect(html).toContain('<div class="vg-gallery">');
+    // 4장 → 2+2 대칭
+    expect((html.match(/vg-cols-2/g) ?? []).length).toBe(2);
+    expect(html).not.toContain("vg-cols-1");
+    // 단독 이미지 한 장은 갤러리로 묶이지 않는다
+    const single = toArticleHtml(
+      [{ type: "img" as const, url: "https://cdn.r2.dev/a.jpg", alt: "a" }],
+      { title: "t" }
+    );
+    expect(single).toContain('class="vg-figure"');
+    expect(single).not.toContain("vg-gallery");
   });
 
   it("★ 본문은 Gemini 산출물이라 태그를 이스케이프한다", () => {
