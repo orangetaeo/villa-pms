@@ -269,7 +269,13 @@ export async function generateServiceArticleBody(
         signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
         body: JSON.stringify({
           contents: [{ parts: [{ text: buildServiceArticlePrompt(topic, facts) }] }],
-          generationConfig: { temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
+          // responseMimeType:"application/json" — 큰 프롬프트(카피가이드 주입)에서 모델이 가이드를
+          // 복창해 파싱 0블록이 되는 간헐 실패를 차단(JSON 디코딩 모드 강제). 실패 시 null 폴백은 유지.
+          generationConfig: {
+            temperature: 0.7,
+            thinkingConfig: { thinkingBudget: 0 },
+            responseMimeType: "application/json",
+          },
         }),
       }
     );

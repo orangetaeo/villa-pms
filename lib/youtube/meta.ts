@@ -157,7 +157,13 @@ async function generateMetaBody(
         signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
         body: JSON.stringify({
           contents: [{ parts: [{ text: buildMetaPrompt(v) }] }],
-          generationConfig: { temperature: 0.8, thinkingConfig: { thinkingBudget: 0 } },
+          // responseMimeType:"application/json" — 큰 프롬프트에서 모델이 지시문을 복창해 파싱 실패하는
+          // 간헐 오류를 차단(JSON 디코딩 모드 강제). 실패 시 null 폴백은 유지.
+          generationConfig: {
+            temperature: 0.8,
+            thinkingConfig: { thinkingBudget: 0 },
+            responseMimeType: "application/json",
+          },
         }),
       }
     );
