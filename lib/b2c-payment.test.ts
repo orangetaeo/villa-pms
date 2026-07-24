@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { Currency } from "@prisma/client";
+import { Currency, B2cScheduleStatus } from "@prisma/client";
 import {
   computeB2cDepositVnd,
   computeB2cSchedule,
   b2cOutstandingVnd,
+  deriveB2cScheduleStatus,
   resolveBookingAnchorVnd,
   buildB2cScheduleCreate,
   B2C_DEFAULT_DEPOSIT_RATE_PCT,
@@ -93,6 +94,29 @@ describe("b2cOutstandingVnd — 앵커 대비 미납 잔액", () => {
   });
   it("과납(환차 등)이어도 음수 아님 → 0", () => {
     expect(b2cOutstandingVnd(10_000_000n, [5_000_000n, 5_100_000n])).toBe(0n);
+  });
+});
+
+describe("deriveB2cScheduleStatus — 결제 누적 → 상태 전이", () => {
+  const s = { totalVnd: 10_000_000n, depositDueVnd: 5_000_000n };
+  it("미납 → PENDING", () => {
+    expect(deriveB2cScheduleStatus(s, 0n, 0n)).toBe(B2cScheduleStatus.PENDING);
+  });
+  it("계약금 일부만 → PENDING", () => {
+    expect(deriveB2cScheduleStatus(s, 4_000_000n, 0n)).toBe(B2cScheduleStatus.PENDING);
+  });
+  it("계약금 완납 → DEPOSIT_PAID", () => {
+    expect(deriveB2cScheduleStatus(s, 5_000_000n, 0n)).toBe(B2cScheduleStatus.DEPOSIT_PAID);
+  });
+  it("전액 완납 → PAID", () => {
+    expect(deriveB2cScheduleStatus(s, 5_000_000n, 5_000_000n)).toBe(B2cScheduleStatus.PAID);
+  });
+  it("과납(환차)이어도 PAID", () => {
+    expect(deriveB2cScheduleStatus(s, 5_000_000n, 5_100_000n)).toBe(B2cScheduleStatus.PAID);
+  });
+  it("fullPrepay(계약금=총액) 전액 한 번에 → PAID", () => {
+    const fp = { totalVnd: 10_000_000n, depositDueVnd: 10_000_000n };
+    expect(deriveB2cScheduleStatus(fp, 10_000_000n, 0n)).toBe(B2cScheduleStatus.PAID);
   });
 });
 

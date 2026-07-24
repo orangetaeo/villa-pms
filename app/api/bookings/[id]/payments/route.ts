@@ -16,6 +16,7 @@ import { krwToVndSnapshot, usdToVndSnapshot } from "@/lib/pricing";
 import { computeVndEquivalent, summarizeCollection } from "@/lib/payment";
 import { postCollection } from "@/lib/ledger";
 import { applyPaymentToReceivable } from "@/lib/partner-booking";
+import { refreshB2cScheduleStatus } from "@/lib/b2c-schedule";
 
 const createSchema = z.object({
   currency: z.nativeEnum(Currency),
@@ -30,8 +31,9 @@ const createSchema = z.object({
     .regex(/^\d+(\.\d{1,4})?$/)
     .optional(),
   note: z.string().max(500).optional(),
-  // 입금 용도 (ADR-0022) — 기본 GUEST(기존 고객 수납·하위호환). 파트너 객실료는 DEPOSIT/BALANCE.
-  purpose: z.enum(["GUEST", "DEPOSIT", "BALANCE"]).default("GUEST"),
+  // 입금 용도 — 기본 GUEST(하위호환). 파트너 B2B 객실료=DEPOSIT/BALANCE(ADR-0022).
+  // 개인고객 B2C 계약금·잔금=B2C_DEPOSIT/B2C_BALANCE(ADR-0048).
+  purpose: z.enum(["GUEST", "DEPOSIT", "BALANCE", "B2C_DEPOSIT", "B2C_BALANCE"]).default("GUEST"),
 });
 
 /** 견적 판매가의 VND 환산 — VND는 그대로, KRW·USD는 예약 시점 스냅샷 환율로. 스냅샷 없으면 null */
@@ -169,6 +171,11 @@ export async function POST(
         where: { id: receivable.id },
         data: upd,
       });
+    }
+    // B2C 개인고객 계약금/잔금 소진 → 스케줄 상태 재계산(ADR-0048). 대상 아니면 내부 skip.
+    //   방금 만든 Payment가 같은 tx 안이라 groupBy 집계에 반영됨. 동일 예약 advisory lock 안이라 경합 안전.
+    if (body.purpose === "B2C_DEPOSIT" || body.purpose === "B2C_BALANCE") {
+      await refreshB2cScheduleStatus(tx, id);
     }
     // 복식부기 LEDGER — COLLECTION 분개 (CASH_{C} +/ REVENUE −, paymentId 멱등, ADR-0018)
     //  KRW·VND·USD 모두 적재(cashAccountFor가 CASH_USD까지 지원) → 보유 현금·매출이 통화별로 잔액에 반영.

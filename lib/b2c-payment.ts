@@ -6,7 +6,7 @@
 // 정책(테오 2026-07-24, ADR-0048 §8): 계약금 50% / 잔금 체크인 D-14 / 14일 이내 예약 = 100% 선결제.
 // 값은 AppSetting(B2C_DEPOSIT_RATE_PCT·B2C_BALANCE_LEAD_DAYS)으로 조정 — 이 순수함수는 인자로 받는다.
 
-import { Currency } from "@prisma/client";
+import { Currency, B2cScheduleStatus } from "@prisma/client";
 import { krwToVndSnapshot, usdToVndSnapshot } from "./pricing";
 
 /** 정책 기본값 (AppSetting 미설정 시 폴백). B2B(DEFAULT_DEPOSIT_RATE_PCT=30)와 별개. */
@@ -111,6 +111,24 @@ export function b2cOutstandingVnd(totalVnd: bigint, paidVndEquivalents: bigint[]
   const paid = paidVndEquivalents.reduce((s, v) => s + v, 0n);
   const remaining = totalVnd - paid;
   return remaining > 0n ? remaining : 0n;
+}
+
+/**
+ * 스케줄 상태 판정 (순수). 결제 VND환산 누적으로 PENDING→DEPOSIT_PAID→PAID 전이.
+ *  - 전액(계약금+잔금 납부) ≥ 총액 → PAID
+ *  - 계약금 납부 ≥ 계약금 청구액(계약금 청구 > 0) → DEPOSIT_PAID
+ *  - 그 외 → PENDING
+ * ⚠ CANCELLED는 취소 경로(P6)가 별도 세팅 — 이 함수는 결제 진행만 판정(취소 상태 유지 책임은 호출부).
+ */
+export function deriveB2cScheduleStatus(
+  s: { totalVnd: bigint; depositDueVnd: bigint },
+  depositPaidVnd: bigint,
+  balancePaidVnd: bigint
+): B2cScheduleStatus {
+  const totalPaid = depositPaidVnd + balancePaidVnd;
+  if (totalPaid >= s.totalVnd) return B2cScheduleStatus.PAID;
+  if (s.depositDueVnd > 0n && depositPaidVnd >= s.depositDueVnd) return B2cScheduleStatus.DEPOSIT_PAID;
+  return B2cScheduleStatus.PENDING;
 }
 
 // ===================== P3a — 예약 → 스케줄 앵커 브리지 =====================

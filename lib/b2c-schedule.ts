@@ -2,9 +2,10 @@
 //   ensureB2cScheduleForBooking: confirmHold에서 B2B 채권(ensureReceivableForBooking)과 대칭으로 호출.
 //   DIRECT(일반고객) 예약에만 스케줄 생성(멱등). 파트너·공급자 직판은 제외.
 //   ⚠ 누수: 스케줄(VND 앵커·마진 판단 재료)은 canViewFinance 전용 — 공급자·공개·STAFF 경로 직렬화 금지.
-import { Prisma, BookingChannel, BookingSeller } from "@prisma/client";
+import { Prisma, BookingChannel, BookingSeller, PaymentPurpose, B2cScheduleStatus } from "@prisma/client";
 import {
   buildB2cScheduleCreate,
+  deriveB2cScheduleStatus,
   B2C_DEFAULT_DEPOSIT_RATE_PCT,
   B2C_DEFAULT_BALANCE_LEAD_DAYS,
 } from "./b2c-payment";
@@ -91,5 +92,37 @@ export async function ensureB2cScheduleForBooking(tx: Tx, bookingId: string, now
       balanceDueDate: data.balanceDueDate,
       fullPrepay: data.fullPrepay,
     },
+  });
+}
+
+/**
+ * B2C 스케줄 상태 재계산 (P3b-2) — 계약금/잔금 Payment 소진 후 호출.
+ *   예약의 B2C 결제(B2C_DEPOSIT/B2C_BALANCE) VND환산 누적을 집계해 PENDING→DEPOSIT_PAID→PAID로 전이.
+ *   스케줄 없거나 이미 CANCELLED면 무변경. 상태가 실제 바뀔 때만 update.
+ *   ⚠ 호출부는 payments 라우트의 예약 advisory lock(receivable:{bookingId}) 안에서 부르므로 경합 안전.
+ */
+export async function refreshB2cScheduleStatus(tx: Tx, bookingId: string) {
+  const schedule = await tx.b2cPaymentSchedule.findUnique({
+    where: { bookingId },
+    select: { id: true, totalVnd: true, depositDueVnd: true, status: true },
+  });
+  if (!schedule) return null;
+  if (schedule.status === B2cScheduleStatus.CANCELLED) return null; // 취소분은 결제로 되살리지 않음
+
+  const sums = await tx.payment.groupBy({
+    by: ["purpose"],
+    where: { bookingId, purpose: { in: [PaymentPurpose.B2C_DEPOSIT, PaymentPurpose.B2C_BALANCE] } },
+    _sum: { vndEquivalent: true },
+  });
+  const sumOf = (p: PaymentPurpose) =>
+    sums.find((r) => r.purpose === p)?._sum.vndEquivalent ?? 0n;
+  const depositPaidVnd = sumOf(PaymentPurpose.B2C_DEPOSIT);
+  const balancePaidVnd = sumOf(PaymentPurpose.B2C_BALANCE);
+
+  const next = deriveB2cScheduleStatus(schedule, depositPaidVnd, balancePaidVnd);
+  if (next === schedule.status) return schedule; // 무변경 — 쓰기 스킵
+  return tx.b2cPaymentSchedule.update({
+    where: { id: schedule.id },
+    data: { status: next },
   });
 }

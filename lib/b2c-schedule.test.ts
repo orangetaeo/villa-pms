@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { Prisma, Currency, BookingChannel, BookingSeller } from "@prisma/client";
-import { ensureB2cScheduleForBooking, resolveB2cSettings } from "./b2c-schedule";
+import { Prisma, Currency, BookingChannel, BookingSeller, PaymentPurpose, B2cScheduleStatus } from "@prisma/client";
+import { ensureB2cScheduleForBooking, resolveB2cSettings, refreshB2cScheduleStatus } from "./b2c-schedule";
 
 /** 가짜 Tx — findUnique/appSetting.findMany/create만 구현. create 호출을 캡처. */
 function makeTx(opts: {
@@ -109,6 +109,65 @@ describe("ensureB2cScheduleForBooking — 대상 판정·생성·멱등", () => 
     expect(res).not.toBeNull();
     expect(created[0].totalVnd).toBe(20_000_000n);
     expect(created[0].depositDueVnd).toBe(10_000_000n);
+  });
+});
+
+/** refreshB2cScheduleStatus용 가짜 Tx — 스케줄 조회 + 결제 groupBy + 스케줄 update 캡처. */
+function makeRefreshTx(opts: {
+  schedule: { id: string; totalVnd: bigint; depositDueVnd: bigint; status: B2cScheduleStatus } | null;
+  depositPaid?: bigint;
+  balancePaid?: bigint;
+}) {
+  const updated: Record<string, unknown>[] = [];
+  const tx = {
+    b2cPaymentSchedule: {
+      findUnique: async () => opts.schedule,
+      update: async ({ data }: { data: Record<string, unknown> }) => {
+        updated.push(data);
+        return { ...opts.schedule, ...data };
+      },
+    },
+    payment: {
+      groupBy: async () => [
+        { purpose: PaymentPurpose.B2C_DEPOSIT, _sum: { vndEquivalent: opts.depositPaid ?? 0n } },
+        { purpose: PaymentPurpose.B2C_BALANCE, _sum: { vndEquivalent: opts.balancePaid ?? 0n } },
+      ],
+    },
+  } as unknown as Prisma.TransactionClient;
+  return { tx, updated };
+}
+
+describe("refreshB2cScheduleStatus — 결제 소진 후 상태 전이", () => {
+  const sched = (status: B2cScheduleStatus) => ({ id: "s1", totalVnd: 10_000_000n, depositDueVnd: 5_000_000n, status });
+
+  it("계약금 완납 → PENDING에서 DEPOSIT_PAID로 update", async () => {
+    const { tx, updated } = makeRefreshTx({ schedule: sched(B2cScheduleStatus.PENDING), depositPaid: 5_000_000n });
+    await refreshB2cScheduleStatus(tx, "bk1");
+    expect(updated).toEqual([{ status: B2cScheduleStatus.DEPOSIT_PAID }]);
+  });
+
+  it("전액 완납 → PAID로 update", async () => {
+    const { tx, updated } = makeRefreshTx({ schedule: sched(B2cScheduleStatus.DEPOSIT_PAID), depositPaid: 5_000_000n, balancePaid: 5_000_000n });
+    await refreshB2cScheduleStatus(tx, "bk1");
+    expect(updated).toEqual([{ status: B2cScheduleStatus.PAID }]);
+  });
+
+  it("상태 변화 없으면 update 스킵", async () => {
+    const { tx, updated } = makeRefreshTx({ schedule: sched(B2cScheduleStatus.PENDING), depositPaid: 1_000_000n });
+    await refreshB2cScheduleStatus(tx, "bk1");
+    expect(updated).toHaveLength(0);
+  });
+
+  it("스케줄 없음 → null(무변경)", async () => {
+    const { tx, updated } = makeRefreshTx({ schedule: null });
+    expect(await refreshB2cScheduleStatus(tx, "bk1")).toBeNull();
+    expect(updated).toHaveLength(0);
+  });
+
+  it("CANCELLED 스케줄은 결제로 되살리지 않음", async () => {
+    const { tx, updated } = makeRefreshTx({ schedule: sched(B2cScheduleStatus.CANCELLED), depositPaid: 5_000_000n });
+    expect(await refreshB2cScheduleStatus(tx, "bk1")).toBeNull();
+    expect(updated).toHaveLength(0);
   });
 });
 
