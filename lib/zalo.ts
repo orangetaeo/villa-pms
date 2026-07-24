@@ -609,6 +609,28 @@ export function buildNotificationText(
         `은행 입금을 대조한 뒤 예약 상세에서 확정해주세요.`,
       ].join("\n");
 
+    case NotificationType.B2C_BALANCE_DUE: {
+      // 수신자=운영자(테오) → 한국어. B2C 개인고객 잔금 청구 도래(체크인 D-14) — 수금 안내.
+      //   ★잔금 청구통화 추정액(현재 환율) + VND 앵커. 원화 확정액은 결제 시점 환율(ADR-0048). 마진·FX원본 미포함.
+      const vnd = formatVndVi(p.balanceDueVnd);
+      const cur = str(p.billingCurrency);
+      let billed = "";
+      if (cur === "KRW" && p.balanceBilledApprox != null) billed = `약 ${num(p.balanceBilledApprox)}원`;
+      else if (cur === "USD" && p.balanceBilledApprox != null) billed = `약 $${num(p.balanceBilledApprox)}`;
+      const amountLine =
+        cur === "VND"
+          ? `잔금: ${vnd ? `${vnd}₫` : "-"}`
+          : billed
+            ? `잔금(예상): ${billed}${vnd ? ` (${vnd}₫)` : ""}`
+            : `잔금(VND): ${vnd ? `${vnd}₫` : "-"} · 원화 환율 미설정`;
+      return [
+        `🧾 잔금 청구 도래: ${villa}`,
+        `게스트: ${str(p.guestName)} · 체크인: ${str(p.checkIn)}`,
+        amountLine,
+        `체크인 14일 전입니다. 고객에게 잔금을 안내·수금해주세요. (원화 확정액은 결제 시점 환율)`,
+      ].join("\n");
+    }
+
     case NotificationType.SERVICE_ORDER_REQUESTED:
       // 수신자=운영자 → 한국어. 게스트/파트너 부가서비스 요청 통지 (A1). 금액 미포함(원칙2).
       return [

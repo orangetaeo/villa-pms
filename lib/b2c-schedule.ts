@@ -2,7 +2,15 @@
 //   ensureB2cScheduleForBooking: confirmHold에서 B2B 채권(ensureReceivableForBooking)과 대칭으로 호출.
 //   DIRECT(일반고객) 예약에만 스케줄 생성(멱등). 파트너·공급자 직판은 제외.
 //   ⚠ 누수: 스케줄(VND 앵커·마진 판단 재료)은 canViewFinance 전용 — 공급자·공개·STAFF 경로 직렬화 금지.
-import { Prisma, BookingChannel, BookingSeller, PaymentPurpose, B2cScheduleStatus } from "@prisma/client";
+import {
+  Prisma,
+  BookingChannel,
+  BookingSeller,
+  PaymentPurpose,
+  B2cScheduleStatus,
+  Currency,
+  NotificationType,
+} from "@prisma/client";
 import type { DbClient } from "./availability";
 import {
   buildB2cScheduleCreate,
@@ -10,6 +18,9 @@ import {
   B2C_DEFAULT_DEPOSIT_RATE_PCT,
   B2C_DEFAULT_BALANCE_LEAD_DAYS,
 } from "./b2c-payment";
+import { getEffectiveFxVndPerKrw, getEffectiveFxVndPerUsd } from "./fx-effective";
+import { suggestSalePriceKrw, suggestSalePriceUsd } from "./pricing";
+import { enqueueOperatorNotification } from "./operator-notify";
 
 type Tx = Prisma.TransactionClient;
 
@@ -126,4 +137,62 @@ export async function refreshB2cScheduleStatus(tx: Tx, bookingId: string) {
     where: { id: schedule.id },
     data: { status: next },
   });
+}
+
+/**
+ * B2C 잔금 도래 운영자 알림 (ADR-0048 P4) — 체크인 D-14 도달 예약의 잔금 청구를 운영자(테오)에게 통지.
+ *   대상: 스케줄 status=DEPOSIT_PAID(계약금 납부·잔금 대기) & 잔금>0 & balanceDueDate == 오늘.
+ *   멱등: balanceDueDate 정확 매칭(1일 1회 크론 전제 — checkout-reminder 관례). 운영자는 예약 상세에서도 확인 가능.
+ *   잔금 청구통화 추정액(현재 유효 환율)을 함께 안내 — ★실제 확정은 결제 시점 환율(ADR-0048). 마진·FX원본 미포함.
+ */
+export async function notifyB2cBalancesDue(db: DbClient, now: Date) {
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const due = await db.b2cPaymentSchedule.findMany({
+    where: {
+      status: B2cScheduleStatus.DEPOSIT_PAID,
+      balanceDueVnd: { gt: 0n },
+      balanceDueDate: today,
+    },
+    select: {
+      balanceDueVnd: true,
+      booking: {
+        select: {
+          id: true,
+          saleCurrency: true,
+          guestName: true,
+          checkIn: true,
+          villa: { select: { name: true } },
+        },
+      },
+    },
+  });
+  if (due.length === 0) return { targetCount: 0, notificationCount: 0 };
+
+  // 잔금 청구통화 추정액용 현재 유효 환율(1회 조회). VND 청구는 불필요.
+  const fxKrw = await getEffectiveFxVndPerKrw(db);
+  const fxUsd = await getEffectiveFxVndPerUsd(db);
+
+  let notificationCount = 0;
+  for (const s of due) {
+    const b = s.booking;
+    const cur = b.saleCurrency;
+    let balanceBilledApprox: number | null = null;
+    if (cur === Currency.KRW && fxKrw) balanceBilledApprox = suggestSalePriceKrw(s.balanceDueVnd, fxKrw);
+    else if (cur === Currency.USD && fxUsd) balanceBilledApprox = suggestSalePriceUsd(s.balanceDueVnd, fxUsd);
+    await enqueueOperatorNotification({
+      type: NotificationType.B2C_BALANCE_DUE,
+      db,
+      payload: {
+        bookingId: b.id,
+        villaName: b.villa.name,
+        guestName: b.guestName,
+        checkIn: b.checkIn.toISOString().slice(0, 10),
+        billingCurrency: cur,
+        balanceDueVnd: s.balanceDueVnd.toString(),
+        balanceBilledApprox, // 환율 미상이면 null → VND만 안내
+      },
+    });
+    notificationCount++;
+  }
+  return { targetCount: due.length, notificationCount };
 }

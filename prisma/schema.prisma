@@ -1529,6 +1529,7 @@ enum NotificationType {
   WEBCHAT_NEW_MESSAGE // 웹 채팅 신규 문의(비로그인 방문자) → 운영자 통지(ko 미리보기, 판매가·마진 미포함). 대화당 첫 메시지 즉시+후속 10분 디바운스 (ADR-0045). additive: 라이브 ALTER TYPE ADD VALUE
   MARKETING_ALERT // 마케팅 자동화 통지(IG 초안·IG/YT 발행실패·YT 토큰·편집 잡 완료) → 운영자(ko). 세부 구분=payload 분기(타입 증식 금지 교훈, marketing-s2 §D). additive: 라이브 ALTER TYPE ADD VALUE
   CONTRACT_NEGOTIATION // 계약 조항 협의 — 요청(상대방→운영자 ko)·해소(운영자→상대방 payload.locale). 방향 구분=payload.kind(타입 증식 금지 교훈). additive: 라이브 ALTER TYPE ADD VALUE
+  B2C_BALANCE_DUE // B2C 개인고객 잔금 청구 도래(체크인 D-14) → 운영자(테오) 통지(ko). 수금 안내, 마진·FX원본 미포함 (ADR-0048 P4). additive: 라이브 ALTER TYPE ADD VALUE
 }
 
 enum NotificationStatus {
