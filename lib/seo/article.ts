@@ -102,6 +102,19 @@ export function parseArticleBody(raw: unknown): ArticleBlock[] {
   return out;
 }
 
+/**
+ * 상세 페이지는 summary를 도입 리드 문단으로 렌더한다. 그런데 생성기(가이드·장소·서비스·빌라 전 경로)가
+ * 본문 첫 문단을 summary와 똑같이 만들어, 같은 문단이 두 번 보이던 문제(테오 지적 2026-07-24)가 있었다.
+ * 렌더용 블록에서 **첫 블록이 summary와 동일한 p면 버린다**. 공백만 정규화해 **완전 일치**일 때만 제거(과삭제 방지).
+ * ★ 분량 하한(isArticlePublishable)은 저장본 bodyJson으로 판정하므로 이 제거의 영향을 받지 않는다.
+ */
+export function stripLeadingSummaryDuplicate(blocks: ArticleBlock[], summary: string): ArticleBlock[] {
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+  const first = blocks[0];
+  if (first?.type === "p" && norm(first.text) === norm(summary)) return blocks.slice(1);
+  return blocks;
+}
+
 /** 본문 실제 글자 수 — 분량 하한 판정용(마크업·공백 제외한 텍스트 기준). */
 export function bodyTextLength(blocks: ArticleBlock[]): number {
   return blocks.reduce((n, b) => {
@@ -157,7 +170,8 @@ function toPublicArticle(row: Prisma.SeoArticleGetPayload<{ select: typeof PUBLI
     slug: row.slug,
     title: row.title,
     summary: row.summary,
-    blocks: parseArticleBody(row.bodyJson),
+    // 첫 문단이 summary와 동일하면 제거(도입 리드로 이미 노출되므로 중복 방지, 2026-07-24)
+    blocks: stripLeadingSummaryDuplicate(parseArticleBody(row.bodyJson), row.summary),
     coverPhotoUrl: row.coverPhotoUrl,
     thumbnailUrl: row.thumbnailUrl,
     // DB는 String이므로 화이트리스트 밖 값(수기 오염 등)은 기본 카테고리로 정규화한다.
