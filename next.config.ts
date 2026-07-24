@@ -28,7 +28,11 @@ const CSP = [
   //   빠뜨리고 enforce하면 모든 페이지에서 콘솔 에러가 뜬다.
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
   // youtube-nocookie = 쿠키 없는 임베드(개인정보 보호형). 빌라 페이지 쇼츠 재생용(T-seo-media).
-  "frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com",
+  // maps.google.com·www.google.com = 지도 임베드(<iframe output=embed>). 빌라 대략지도·장소 정밀지도
+  //   (블로그)·제안링크·판매화면 MapEmbed가 쓴다. ★임베드 URL은 maps.google.com에서 시작해
+  //   www.google.com/maps/embed 로 301 리다이렉트하므로 **두 호스트 모두** 있어야 한다(브라우저는
+  //   프레임 내 각 내비게이션을 frame-src로 검사 → 리다이렉트 대상 호스트 누락 시 지도가 통째로 안 뜬다).
+  "frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://maps.google.com https://www.google.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   // blob: = 첨부 대기열·붙여넣기 미리보기 썸네일(objectURL). *.zdn.vn = Zalo 그룹 사진(photo-stal-*).
