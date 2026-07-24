@@ -47,7 +47,6 @@ import { translateText, previewTargetForMode, GeminiNotConfiguredError } from "@
 import {
   isCostSideType,
   isSellSideType,
-  currencyForType,
 } from "@/lib/zalo-counterparty";
 import { loadVillaShareImage } from "@/lib/zalo-share-image";
 import {
@@ -61,7 +60,7 @@ import {
   type VillaShareBase,
 } from "@/lib/zalo-share";
 import { pickLowestSalePrice } from "@/lib/pricing";
-import { getPublishedArticleForVilla } from "@/lib/seo/article";
+import { getPublicVillasByIds } from "@/lib/seo/public-villa";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { blogPaths } from "@/lib/seo/routes";
 import koMessages from "@/messages/ko.json";
@@ -635,7 +634,7 @@ async function handleVilla(
   }
 
   // 판매가측(고객·여행사·랜드사) 경로 — ratePeriods는 salePriceVnd/salePriceKrw만 SELECT.
-  // supplierCostVnd/margin 미조회 (D4.1, ADR-0014). 본문 통화는 currencyForType()로 분류별 결정.
+  // supplierCostVnd/margin 미조회 (D4.1, ADR-0014). 본문 통화는 항상 VND(2026-07-24).
   const villa = await prisma.villa.findUnique({
     where: { id: villaId },
     select: {
@@ -660,17 +659,19 @@ async function handleVilla(
   if (villa.status !== "ACTIVE" || !villa.isSellable) {
     return NextResponse.json({ error: "VILLA_NOT_SELLABLE" }, { status: 403 });
   }
-  // 통화 — 분류값으로 결정(R2-3): CUSTOMER=KRW, TRAVEL_AGENCY/LAND_AGENCY=VND.
-  const saleCurrency = currencyForType(conv.counterpartyType);
+  // ★통화 — 빌라 공유는 분류 무관 항상 VND(2026-07-24). CUSTOMER도 KRW→VND로 통일.
+  //   (제안 공유(handleProposal) 통화는 proposal.saleCurrency 그대로 — 여기서 건드리지 않음.)
+  const saleCurrency = Currency.VND;
 
-  // Q2(계약 F) — 발행된 소개글이 있으면 간단정보 + 대표 "부터" 가격 + 블로그 링크로 발송.
-  //   없으면 기존 상세 요율 나열(폴백). 블로그 조회는 판매가 쿼리와 별개(원가·마진 미조회 유지).
-  const article = await getPublishedArticleForVilla(villaId);
-  if (article) {
-    const from = pickLowestSalePrice(villa.ratePeriods, saleCurrency === Currency.KRW);
+  // Q2(계약 F) — 공개 게이트 통과한 빌라 상세 페이지(/blog/villa/[slug], 상담 CTA 있음)가 있으면
+  //   간단정보 + 대표 "부터" 가격 + 그 페이지 링크로 발송. 없으면 기존 상세 요율 나열(폴백).
+  //   getPublicVillasByIds는 공개 화이트리스트 관문(판매가·원가·마진 미조회) — 누수 불변식 유지.
+  const [publicVilla] = await getPublicVillasByIds([villaId]);
+  if (publicVilla) {
+    const from = pickLowestSalePrice(villa.ratePeriods, false);
     const briefText = buildVillaShareBriefWithBlog(toShareBase(villa, "ko"), from, saleCurrency, {
-      url: absoluteUrl(blogPaths.article(article.slug)),
-      title: article.title,
+      url: absoluteUrl(blogPaths.villa(publicVilla.slug)),
+      title: publicVilla.publicLabel, // 공개 상세 페이지 H1 라벨(지역·특징 조합, 실명 아님)
     });
     return sendVillaShare(conv, adminUserId, briefText, villa.photos[0]?.url ?? null, villa.name);
   }

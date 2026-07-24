@@ -44,6 +44,12 @@ vi.mock("@/lib/zalo-share-image", () => ({
   loadVillaShareImage: (...a: unknown[]) => mockLoadShareImage(...a),
 }));
 
+// 빌라→공개 상세 페이지(/blog/villa/[slug]) 역조회 mock — 기본은 공개 빌라 없음(고객 빌라 공유 폴백 경로 유지).
+const mockGetPublicVillasByIds = vi.fn<(...a: unknown[]) => Promise<unknown[]>>(async () => []);
+vi.mock("@/lib/seo/public-villa", () => ({
+  getPublicVillasByIds: (...a: unknown[]) => mockGetPublicVillasByIds(...a),
+}));
+
 const mockSaveFile = vi.fn(async (..._a: unknown[]) => ({ url: "https://cdn/test-img.jpg" }));
 const mockSaveAttachment = vi.fn(async (..._a: unknown[]) => ({
   url: "https://cdn/test-doc.pdf",
@@ -190,8 +196,6 @@ vi.mock("@/lib/prisma", () => ({
         };
       }),
     },
-    // 빌라→블로그 역조회(계약 D/F) — 기본은 발행글 없음(고객 빌라 공유 폴백 경로 유지).
-    seoArticle: { findFirst: vi.fn(async () => null) },
     settlement: {
       findFirst: vi.fn(async (arg: { where: Record<string, unknown> }) => {
         lastSettlementWhere = arg.where;
@@ -286,8 +290,8 @@ describe("S3 빌라 — 공급자 경로(원가만)", () => {
   });
 });
 
-describe("S3 빌라 — 고객 경로(판매가만)", () => {
-  it("supplierCost/margin select 안 함, 본문에 원가/마진 0", async () => {
+describe("S3 빌라 — 고객 경로(판매가만, VND 통일)", () => {
+  it("supplierCost/margin select 안 함, 본문에 원가/마진 0, 통화는 VND", async () => {
     const res = await jsonReq("convCust", { type: "VILLA", villaId: "villa1" });
     expect(res.status).toBe(200);
     const ratesSel = (lastVillaSelect!.ratePeriods as { select: Record<string, boolean> }).select;
@@ -296,11 +300,29 @@ describe("S3 빌라 — 고객 경로(판매가만)", () => {
     expect(ratesSel.supplierCostVnd).toBeUndefined();
     expect(ratesSel.marginValue).toBeUndefined();
     expect(ratesSel.marginType).toBeUndefined();
-    // KRW 판매가(₩90,000) 포함, 원가(1,000,000) 미포함
+    // ★VND 판매가(1,500,000₫)만 — CUSTOMER도 VND로 통일(2026-07-24). KRW(₩90,000)·원가(1,000,000) 미포함
     const sentText = mockSendText.mock.calls[0][2] as string;
-    expect(sentText).toContain("₩90,000");
+    expect(sentText).toContain("1,500,000₫");
+    expect(sentText).not.toContain("₩");
+    expect(sentText).not.toContain("90,000");
     expect(sentText).not.toContain("1,000,000");
     expect(sentText).toContain("가격");
+  });
+
+  it("공개 상세 페이지 있으면 /blog/villa/[slug] 링크 + 대표가(VND) + publicLabel 발송", async () => {
+    mockGetPublicVillasByIds.mockResolvedValueOnce([
+      { slug: "sonasea-3br-villa-cmru3psz", publicLabel: "쏘나씨 3베드 풀빌라" },
+    ]);
+    const res = await jsonReq("convCust", { type: "VILLA", villaId: "villa1" });
+    expect(res.status).toBe(200);
+    const sentText = mockSendText.mock.calls[0][2] as string;
+    // 빌라 상세 페이지(블로그 글 /blog/{slug}이 아니라 /blog/villa/{slug})
+    expect(sentText).toContain("/blog/villa/sonasea-3br-villa-cmru3psz");
+    expect(sentText).toContain("📖 상세 소개: 쏘나씨 3베드 풀빌라");
+    // 대표 "부터" 가격은 VND, 원가·KRW 누수 없음
+    expect(sentText).toContain("1,500,000₫ ~ / 박");
+    expect(sentText).not.toContain("₩");
+    expect(sentText).not.toContain("1,000,000");
   });
 });
 
@@ -331,11 +353,12 @@ describe("S3 빌라 — 판매가측 그룹 확장(여행사·랜드사 = 판매
     expect(sentText).not.toContain("90,000");
     expect(sentText).not.toContain("₩");
   });
-  it("CUSTOMER 통화는 여전히 KRW(₩90,000) — 회귀", async () => {
+  it("CUSTOMER 통화도 VND(1,500,000₫)로 통일 — 회귀(2026-07-24)", async () => {
     const res = await jsonReq("convCust", { type: "VILLA", villaId: "villa1" });
     expect(res.status).toBe(200);
     const sentText = mockSendText.mock.calls[0][2] as string;
-    expect(sentText).toContain("₩90,000");
+    expect(sentText).toContain("1,500,000₫");
+    expect(sentText).not.toContain("₩");
   });
 });
 

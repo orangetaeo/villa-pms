@@ -15,7 +15,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
-import { isSellSideType, currencyForType } from "@/lib/zalo-counterparty";
+import { isSellSideType } from "@/lib/zalo-counterparty";
 import { pickLowestSalePrice, pickLowestSupplierCost } from "@/lib/pricing";
 import { formatVillaName } from "@/lib/villa-name";
 import type {
@@ -80,9 +80,9 @@ export async function GET(
         bedrooms: true,
         bathrooms: true,
         photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
-        // 대표 원가 = 전체 요율 중 원가 >0 최저값(계약 A) — base=0 초기화 오염 회피. 원가 전용 select(salePrice*/margin 미조회).
+        // 대표 원가 = 시즌 우선-else-base 원가 >0 최저값(계약 A) — base=원가동일/0 오염 회피. 원가 전용 select(salePrice*/margin 미조회).
         ratePeriods: {
-          select: { supplierCostVnd: true },
+          select: { isBase: true, supplierCostVnd: true },
         },
       },
     });
@@ -130,10 +130,9 @@ export async function GET(
     ) as SettlementCandidate[];
   } else if (isSellSideType(counterpartyType)) {
     // 판매가측 그룹(CUSTOMER/TRAVEL_AGENCY/LAND_AGENCY) — ACTIVE+isSellable 빌라만, 판매가만.
-    // 통화는 currencyForType로 분기: CUSTOMER=KRW, TRAVEL_AGENCY/LAND_AGENCY=VND.
+    // ★빌라 공유 대표가는 분류 무관 항상 VND(2026-07-24) — CUSTOMER도 KRW→VND로 통일.
+    //   (제안 후보 통화는 아래에서 proposal.saleCurrency로 별도 유지 — 빌라만 VND 고정.)
     // 원가(supplierCostVnd)·마진(marginType/marginValue)은 화이트리스트에서 영구 제외 — 누수 불변식.
-    const sellCurrency = currencyForType(counterpartyType);
-    const useKrw = sellCurrency === Currency.KRW;
     const villas = await prisma.villa.findMany({
       where: { status: "ACTIVE", isSellable: true },
       orderBy: { createdAt: "desc" },
@@ -154,7 +153,8 @@ export async function GET(
     });
     villaCandidates = serializeBigInt(
       villas.map((v) => {
-        const low = pickLowestSalePrice(v.ratePeriods, useKrw);
+        // ★항상 VND(useKrw=false) — 빌라 공유가는 분류 무관 VND로 통일.
+        const low = pickLowestSalePrice(v.ratePeriods, false);
         return {
           id: v.id,
           name: v.name,
@@ -162,12 +162,10 @@ export async function GET(
           bedrooms: v.bedrooms,
           bathrooms: v.bathrooms,
           photoUrl: v.photos[0]?.url ?? null,
-          priceLabelKind: (useKrw ? "salePriceKrw" : "salePriceVnd") as
-            | "salePriceKrw"
-            | "salePriceVnd",
+          priceLabelKind: "salePriceVnd" as const,
           priceVnd: low?.vnd ?? null,
-          priceKrw: low?.krw ?? null,
-          priceIsFrom: low !== null, // 최저 시즌가 기준 → "부터" 표기
+          priceKrw: null,
+          priceIsFrom: low !== null, // 최저 시즌가(없으면 base) 기준 → "부터" 표기
         };
       })
     ) as VillaCandidate[];
