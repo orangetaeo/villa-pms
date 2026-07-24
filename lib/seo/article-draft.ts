@@ -260,7 +260,7 @@ export function pickArticleImages(villas: PublicVilla[], max = 3, seedKey = ""):
       const spaceKo = SPACE_LABEL_KO[space] ?? "내부";
       out.push({
         url: photo.url,
-        alt: `${where} ${v.name} ${spaceKo}`,
+        alt: `${v.publicLabel} ${spaceKo}`,
         caption: `${where} · 침실 ${v.bedrooms}개 · 최대 ${v.maxGuests}인`,
       });
       usedUrls.add(photo.url);
@@ -312,9 +312,8 @@ export function villaTopicKey(slug: string): string {
 }
 
 export function buildVillaArticleTitle(v: PublicVilla): string {
-  const where = v.areaNameKo ?? v.areaName ?? v.complex ?? "푸꾸옥";
-  const pool = v.hasPool ? "프라이빗 풀빌라" : "빌라";
-  return `${where} ${v.name} — 침실 ${v.bedrooms}개 ${pool}, 어떤 여행에 맞을까`;
+  // 고유 실명 미사용 — 지역·특징 표시명(publicLabel)만. 실명은 검색 우회·직거래 위험(원칙 1).
+  return `${v.publicLabel}, 어떤 여행에 맞을까`;
 }
 
 export function buildVillaArticlePrompt(v: PublicVilla): string {
@@ -341,7 +340,8 @@ export function buildVillaArticlePrompt(v: PublicVilla): string {
     "너는 베트남 푸꾸옥 현지에서 빌라를 운영하는 회사의 콘텐츠 에디터다.",
     `아래 빌라 한 곳을 소개하는 글을 쓴다. 제목은 이미 정해져 있으니 본문만 쓴다.`,
     "",
-    `빌라: ${v.name} (${where})`,
+    // ★ 고유 실명 대신 지역·특징 표시명만 준다 — 실명을 본문에 쓰면 검색 우회·직거래로 이어진다(원칙 1).
+    `빌라: ${v.publicLabel}`,
     "확인된 사실:",
     ...facts.map((x) => `- ${x}`),
     "",
@@ -389,7 +389,6 @@ const FEATURE_KO_ARTICLE: Record<string, string> = {
  * 첫 장은 커버로 쓰고 나머지를 본문에 배치한다.
  */
 export function pickVillaPhotos(v: PublicVilla, max = 4): PickedImage[] {
-  const where = v.areaNameKo ?? v.areaName ?? v.complex ?? "푸꾸옥";
   const priority = ["EXTERIOR", "POOL", "LIVING", "BEDROOM", "KITCHEN", "BALCONY", "BATHROOM", "ETC"];
   const out: PickedImage[] = [];
   const used = new Set<string>();
@@ -398,10 +397,11 @@ export function pickVillaPhotos(v: PublicVilla, max = 4): PickedImage[] {
     const photo = v.photos.find((p) => p.space === space && !used.has(p.url));
     if (!photo) continue;
     used.add(photo.url);
+    const spaceKo = SPACE_LABEL_KO[space] ?? "내부";
     out.push({
       url: photo.url,
-      alt: `${where} ${v.name} ${SPACE_LABEL_KO[space] ?? "내부"}`,
-      caption: photo.spaceLabel ?? `${v.name} ${SPACE_LABEL_KO[space] ?? ""}`.trim(),
+      alt: `${v.publicLabel} ${spaceKo}`,
+      caption: photo.spaceLabel ?? `${v.publicLabel} ${spaceKo}`.trim(),
     });
   }
   return out;

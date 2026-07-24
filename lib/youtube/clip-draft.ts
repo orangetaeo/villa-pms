@@ -69,7 +69,8 @@ export function canBuildTour(clips: ClipRow[]): boolean {
 }
 
 export interface TourVillaFacts {
-  name: string;
+  // ★ 고유 실명(name) 미사용(원칙 1) — 화면 헤드라인은 지역·특징으로만 만든다.
+  complex?: string | null;
   bedrooms?: number | null;
   hasPool?: boolean;
   beachDistanceM?: number | null;
@@ -78,6 +79,7 @@ export interface TourVillaFacts {
 /**
  * 오프닝 헤드라인 — 화면에 뜨는 두 줄. 나레이션과 **같은 사실**을 음소거 시청자에게 전한다.
  * (수동 편에서 손으로 쓰던 "해변 바로 앞 / 네 침실 프라이빗 풀빌라"를 규칙으로 굳힌 것)
+ * ★ 해변이 훅이 못 될 때의 첫 줄도 고유 실명이 아니라 단지명(있으면)으로 채운다.
  */
 export function buildTourHeadline(v: TourVillaFacts): string {
   const first =
@@ -85,7 +87,9 @@ export function buildTourHeadline(v: TourVillaFacts): string {
       ? "해변 바로 앞"
       : v.beachDistanceM != null && v.beachDistanceM <= 400
         ? "해변 도보 2분"
-        : v.name;
+        : v.complex
+          ? `푸꾸옥 ${v.complex}`
+          : "푸꾸옥 프라이빗 풀빌라";
   const parts: string[] = [];
   if (v.bedrooms) parts.push(`침실 ${v.bedrooms}개`);
   if (v.hasPool) parts.push("프라이빗 풀빌라");

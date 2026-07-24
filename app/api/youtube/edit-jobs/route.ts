@@ -35,9 +35,9 @@ async function loadVillaPublicInfo(villaId: string): Promise<VillaPublicInfo | n
   const v = await prisma.villa.findUnique({
     where: { id: villaId },
     select: {
-      name: true,
-      nameVi: true,
+      // ★ 고유 실명(name/nameVi)은 조회하지 않는다 — 공개 표시명은 지역·특징으로 계산(원칙 1).
       complex: true,
+      complexArea: { select: { nameKo: true } },
       bedrooms: true,
       maxGuests: true,
       beachDistanceM: true,
@@ -48,9 +48,8 @@ async function loadVillaPublicInfo(villaId: string): Promise<VillaPublicInfo | n
   });
   if (!v) return null;
   return {
-    name: v.name,
-    nameVi: v.nameVi,
     complex: v.complex,
+    areaNameKo: v.complexArea?.nameKo ?? null,
     bedrooms: v.bedrooms,
     maxGuests: v.maxGuests,
     beachDistanceM: v.beachDistanceM,
@@ -130,7 +129,10 @@ export async function POST(req: Request) {
   if (villaId) {
     const info = await loadVillaPublicInfo(villaId);
     if (!info) return NextResponse.json({ error: "VILLA_NOT_FOUND" }, { status: 400 });
-    resolvedVillaName = info.name;
+    // ★ 운영자 확인용 표시명 — 이 응답은 **운영자 화면**(create-short-wizard)에만 쓰이므로 실명 OK(내부).
+    //   공개 생성기(generateShortMeta)에는 실명이 들어가지 않는다(info에 name 없음).
+    const named = await prisma.villa.findUnique({ where: { id: villaId }, select: { name: true } });
+    resolvedVillaName = named?.name ?? null;
     const meta = await generateShortMeta(info);
     if (!title) title = meta.title;
     description = meta.description;

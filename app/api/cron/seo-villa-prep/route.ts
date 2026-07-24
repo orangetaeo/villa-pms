@@ -53,7 +53,7 @@ async function handle(req: Request) {
     // ① 슬러그
     let slug = v.publicSlug;
     if (!slug) {
-      slug = await ensureUniquePublicSlug({ id: v.id, name: v.name, nameVi: v.nameVi }, prisma);
+      slug = await ensureUniquePublicSlug({ id: v.id, complex: v.complex, bedrooms: v.bedrooms }, prisma);
       await prisma.villa.update({ where: { id: v.id }, data: { publicSlug: slug } });
       slugged.push(slug);
       await writeAuditLog({

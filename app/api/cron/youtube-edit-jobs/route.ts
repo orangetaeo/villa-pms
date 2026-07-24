@@ -31,6 +31,7 @@ import { notifyMarketing } from "@/lib/marketing-notify";
 import { validateEditParams, runYoutubeEditJob } from "@/lib/youtube/edit";
 import { canRerender } from "@/lib/youtube/rerender-guard";
 import { buildIntroSpecs } from "@/lib/youtube/narration";
+import { publicVillaLabel } from "@/lib/marketing/public-name";
 import { isRenderBusy, winsRenderRace } from "@/lib/youtube/render-lock";
 import { reapStalePublishing } from "@/lib/marketing/reap-stale-publishing";
 
@@ -165,7 +166,16 @@ async function handle(req: Request) {
         id: true,
         status: true,
         editParamsJson: true,
-        villa: { select: { name: true, bedrooms: true, hasPool: true, beachDistanceM: true } },
+        // ★ 고유 실명(name)은 조회하지 않는다 — 인트로 부제는 지역·특징 표시명(publicVillaLabel)으로만.
+        villa: {
+          select: {
+            complex: true,
+            complexArea: { select: { nameKo: true } },
+            bedrooms: true,
+            hasPool: true,
+            beachDistanceM: true,
+          },
+        },
       },
     });
     if (!short) continue;
@@ -173,13 +183,20 @@ async function handle(req: Request) {
     try {
       const editParams = validateEditParams(short.editParamsJson);
       const result = await runYoutubeEditJob(editParams, {
-        villaName: short.villa?.name ?? null,
+        // 인트로 부제 = 공개 표시명(고유 실명 아님, 원칙 1).
+        introSubtitle: short.villa
+          ? publicVillaLabel({
+              complex: short.villa.complex,
+              areaNameKo: short.villa.complexArea?.nameKo ?? null,
+              bedrooms: short.villa.bedrooms,
+              hasPool: short.villa.hasPool,
+            })
+          : null,
         baseName: short.id,
         // ★ 오프닝 스펙 칩(QA M-6) — 나레이션 훅과 같은 정보를 화면에도 띄운다.
         //   음소거 시청자에게 침실 수·수영장·해변 거리를 전달하는 게 오프닝의 핵심이다.
         introSpecs: short.villa
           ? buildIntroSpecs({
-              villaName: short.villa.name,
               bedrooms: short.villa.bedrooms,
               hasPool: short.villa.hasPool,
               beachDistanceM: short.villa.beachDistanceM,
