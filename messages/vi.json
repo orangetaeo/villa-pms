@@ -6706,7 +6706,9 @@
     "altPlaceholder": "Mô tả ảnh (bắt buộc)",
     "captionPlaceholder2": "Chú thích dưới ảnh (tuỳ chọn)",
     "editHint": "Sửa câu chữ hoặc bỏ đoạn/ảnh rồi lưu. Dưới {min} ký tự sẽ không lưu được.",
-    "errorTooShort": "Nội dung quá ngắn nên chưa lưu ({chars} ký tự / tối thiểu {min}). Hãy bớt xoá đoạn và thử lại."
+    "errorTooShort": "Nội dung quá ngắn nên chưa lưu ({chars} ký tự / tối thiểu {min}). Hãy bớt xoá đoạn và thử lại.",
+    "categoryFilter": "Phân loại",
+    "catAll": "Tất cả"
   },
   "marketingSeoMedia": {
     "title": "Ảnh tư liệu cho bài hướng dẫn",

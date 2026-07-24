@@ -37,6 +37,7 @@ import {
 } from "@/lib/seo/service-article";
 import { getPlaceCandidates, placeTopicKey, createPlaceArticleDraft } from "@/lib/seo/place-article";
 import { ensureWatermarkedUrl } from "@/lib/seo/watermark-server";
+import type { SeoArticleCategory } from "@/lib/seo/categories";
 import { renderArticleThumbnail } from "@/lib/seo/thumbnail";
 import { toArticleHtml } from "@/lib/seo/article-html";
 
@@ -108,6 +109,7 @@ async function handle(req: Request) {
           summary: buildSummary(vDraft.blocks),
           bodyJson: vBody,
           topicKey: key,
+          category: "villa" satisfies SeoArticleCategory,
           coverPhotoUrl: vCover,
           relatedVillaIds: [villa.id],
           status: SeoArticleStatus.PENDING_APPROVAL,
@@ -166,6 +168,7 @@ async function handle(req: Request) {
           summary: buildSummary(sDraft.blocks),
           bodyJson: sBody,
           topicKey: key,
+          category: "service" satisfies SeoArticleCategory,
           coverPhotoUrl: sCover,
           status: SeoArticleStatus.PENDING_APPROVAL,
           flaggedTerms: sDraft.flaggedTerms.length > 0 ? sDraft.flaggedTerms : undefined,
@@ -282,6 +285,7 @@ async function handle(req: Request) {
         bodyJson: guideBody,
         coverPhotoUrl: guideCover,
         topicKey: topic.key,
+        category: "guide" satisfies SeoArticleCategory,
         status: SeoArticleStatus.PENDING_APPROVAL,
         flaggedTerms: draft.flaggedTerms.length > 0 ? draft.flaggedTerms : undefined,
         createdBy: CREATED_BY,

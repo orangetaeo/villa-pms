@@ -14,6 +14,7 @@ import { BLOG_ROOT, blogPaths } from "@/lib/seo/routes";
 import { getPublicVillas } from "@/lib/seo/public-villa";
 import { getPublishedArticles } from "@/lib/seo/article";
 import { allFacetPages } from "@/lib/seo/facets";
+import { SEO_ARTICLE_CATEGORIES } from "@/lib/seo/categories";
 
 // DB를 읽으므로 정적 프리렌더 금지 — 요청 시 생성 + 1시간 재검증.
 export const dynamic = "force-dynamic";
@@ -47,6 +48,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: "weekly",
         priority: 0.8,
       });
+      // 카테고리 목록 페이지 — 실제로 발행 글이 1건 이상인 분류만 등재(빈 목록 = 얇은 콘텐츠).
+      const presentCategories = new Set(articles.map((a) => a.category));
+      for (const cat of SEO_ARTICLE_CATEGORIES) {
+        if (!presentCategories.has(cat)) continue;
+        articleEntries.push({
+          url: absoluteUrl(blogPaths.categoryList(cat)),
+          lastModified: now,
+          changeFrequency: "weekly",
+          priority: 0.6,
+        });
+      }
       for (const a of articles) {
         // images = 사이트맵 이미지 확장. 이미지 검색 색인 힌트이며, 본문 이미지까지 포함시킨다.
         //   ★ 절대 URL만 넣는다(루트 상대경로 브랜드 자산은 absoluteUrl로 승격).
