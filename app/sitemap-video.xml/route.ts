@@ -9,9 +9,11 @@
 //
 // ★ robots.txt에는 이 파일을 넣지 않는다 — 네이버가 robots의 Sitemap: 줄을 자동으로 읽다가
 //   같은 오류를 다시 만나면 안 된다. 구글 GSC에서 직접 제출하는 용도다.
+import { prisma } from "@/lib/prisma";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { blogPaths } from "@/lib/seo/routes";
 import { getPublicVillas } from "@/lib/seo/public-villa";
+import { getPublishedArticles } from "@/lib/seo/article";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 3600;
@@ -49,6 +51,34 @@ export async function GET() {
       entries += `  <url>
     <loc>${esc(loc)}</loc>
 ${videos}
+  </url>\n`;
+    }
+
+    // ── 개별 영상 글(category="video") — ADR-0049 ──
+    //   ★ getPublishedArticles가 공개 게이트(PUBLISHED·publishedAt·publicHidden=false)를 이미 건다
+    //     → publicHidden 글은 여기서 자동 제외(C12). loc=/blog/[slug], player_loc=YT embed.
+    const articles = await getPublishedArticles(prisma, 1000);
+    for (const a of articles) {
+      if (a.category !== "video") continue;
+      const videoBlock = a.blocks.find((b) => b.type === "video");
+      if (!videoBlock || videoBlock.type !== "video") continue; // 영상 없는 영상 글은 sitemap 제외
+      const ytId = videoBlock.ytVideoId;
+      const loc = absoluteUrl(blogPaths.article(a.slug));
+      // thumbnail_loc = 커버(R2 posterUrl) → 없거나 자사 정적 폴백이면 유튜브 썸네일.
+      const thumb =
+        a.coverPhotoUrl && a.coverPhotoUrl.startsWith("https://")
+          ? a.coverPhotoUrl
+          : `https://i.ytimg.com/vi/${esc(ytId)}/hqdefault.jpg`;
+      const desc = a.summary.replace(/\s+/g, " ").trim().slice(0, 200) || a.title;
+      entries += `  <url>
+    <loc>${esc(loc)}</loc>
+    <video:video>
+      <video:thumbnail_loc>${esc(thumb)}</video:thumbnail_loc>
+      <video:title>${esc(a.title)}</video:title>
+      <video:description>${esc(desc)}</video:description>
+      <video:player_loc>https://www.youtube.com/embed/${esc(ytId)}</video:player_loc>
+      <video:publication_date>${a.publishedAt.toISOString()}</video:publication_date>
+    </video:video>
   </url>\n`;
     }
   } catch {
